@@ -84,8 +84,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         <div className="portal-hero-content">
           <div className="portal-hero-copy">
             <p className="portal-kicker">GameFi · DeFi · Việt sử hùng ca</p>
-            <h1 id="portal-title">Hào Khí <span>Đại Việt</span></h1>
-            <p className="portal-hero-lead">Hệ sinh thái chiến thuật tái hiện hào hùng lịch sử Việt Nam.</p>
+            <div className="portal-hero-title-lockup">
+              <h1 id="portal-title" aria-label="Hào Khí Đại Việt"><span>Hào Khí</span><span>Đại Việt</span></h1>
+              <span className="portal-hero-seal" aria-hidden="true">Việt<br />Sử<br />Hùng<br />Ca</span>
+            </div>
+            <p className="portal-hero-lead">Hệ sinh thái GameFi tái hiện hào hùng lịch sử Việt Nam.</p>
             <p className="portal-hero-description">Chọn triều đại, chiêu mộ binh mã và dẫn quân qua những trận đánh vang dội. Chơi miễn phí; kết nối ví khi muốn giao dịch.</p>
             <div className="portal-hero-actions">
               <button className="portal-button portal-button-primary" type="button" onClick={startGame}><Play aria-hidden="true" /> Chơi ngay <ArrowRight aria-hidden="true" /></button>
