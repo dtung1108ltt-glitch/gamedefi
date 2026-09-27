@@ -48,8 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="portal-header">
       <div className="portal-header-inner">
         <button type="button" className="portal-brand" onClick={() => navigate(onOpenHome)} aria-label="Về trang chủ Hào Khí Đại Việt">
-          <img src="/drum_icon.svg" alt="" />
-          <span>Hào Khí <strong>Đại Việt</strong></span>
+          <img src="/hao-khi-dai-viet-header.png" alt="" width="2172" height="724" />
         </button>
         <nav className="portal-desktop-nav" aria-label="Điều hướng chính">
           {nav.map(({ label, action, active }) => <button type="button" key={label} onClick={() => navigate(action)} aria-current={active ? 'page' : undefined}>{label}</button>)}

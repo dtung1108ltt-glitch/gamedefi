@@ -1,9 +1,7 @@
 .portal-header { position: sticky; top: 0; z-index: 50; border-bottom: 1px solid #7b6342; background: #03101cef; backdrop-filter: blur(14px); color: #f5ecdc; }
 .portal-header-inner { display: flex; align-items: center; gap: 20px; width: min(100%, 1500px); min-height: 66px; margin: auto; padding: 7px clamp(20px, 4.2vw, 70px); }
-.portal-brand { display: inline-flex; flex: none; align-items: center; gap: 9px; color: #f2c57b; text-align: left; }
-.portal-brand img { width: 43px; height: 43px; }
-.portal-brand span { display: grid; font-family: 'Noto Serif', 'Be Vietnam Pro', serif; font-size: .85rem; font-weight: 900; line-height: 1.07; letter-spacing: .02em; text-transform: uppercase; }
-.portal-brand strong { font-size: 1.15rem; }
+.portal-brand { display: inline-flex; flex: none; align-items: center; }
+.portal-brand img { display: block; width: 174px; height: auto; mix-blend-mode: lighten; }
 .portal-desktop-nav { display: flex; align-items: stretch; align-self: stretch; justify-content: center; gap: 2px; margin: 0 auto; }
 .portal-desktop-nav button { position: relative; padding: 0 10px; color: #d4dfdf; font-size: .72rem; font-weight: 650; white-space: nowrap; transition: color .2s ease; }
 .portal-desktop-nav button:hover, .portal-desktop-nav button[aria-current='page'] { color: #f8e9ce; }
@@ -39,9 +37,7 @@
 }
 @media (max-width: 530px) {
   .portal-header-inner { min-height: 58px; gap: 7px; }
-  .portal-brand img { width: 34px; height: 34px; }
-  .portal-brand span { font-size: .62rem; }
-  .portal-brand strong { font-size: .85rem; }
+  .portal-brand img { width: clamp(116px, 36vw, 150px); }
   .portal-network { display: none; }
   .portal-header-actions { gap: 6px; }
   .portal-connect { min-height: 34px; padding-inline: 8px; font-size: .65rem; }
