@@ -24,10 +24,10 @@ const worlds = [
 ];
 
 const legends = [
-  { name: 'Hai Bà Trưng', note: 'Khởi nghĩa Mê Linh' },
-  { name: 'Trần Hưng Đạo', note: 'Hào khí Đông A' },
-  { name: 'Lê Lợi', note: 'Khởi nghĩa Lam Sơn' },
-  { name: 'Quang Trung', note: 'Đại phá quân Thanh' },
+  { name: 'Hai Bà Trưng', note: 'Khởi nghĩa Mê Linh', image: '/hai-ba-trung.webp' },
+  { name: 'Trần Hưng Đạo', note: 'Hào khí Đông A', image: '/tran-hung-dao.webp' },
+  { name: 'Lê Lợi', note: 'Khởi nghĩa Lam Sơn', image: '/le-loi.webp' },
+  { name: 'Quang Trung', note: 'Đại phá quân Thanh', image: '/quang-trung.webp' },
 ];
 
 const chapters = [
@@ -98,7 +98,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           <aside className="portal-hero-collection" aria-label="Giới thiệu tướng lĩnh">
             <div className="portal-collection-top"><Crown aria-hidden="true" /><span>Danh tướng Đại Việt</span></div>
             <div className="portal-collection-portraits" aria-hidden="true">
-              {legends.map((legend, index) => <span className={`portal-mini-portrait portrait-${index + 1}`} key={legend.name} />)}
+              {legends.map((legend) => <img className="portal-mini-portrait" src={legend.image} alt="" key={legend.name} />)}
             </div>
             <div className="portal-collection-bottom"><span>Khám phá những nhân vật lịch sử</span><button type="button" onClick={onOpenAdvisors} aria-label="Khám phá danh tướng"><ArrowRight aria-hidden="true" /></button></div>
           </aside>
@@ -137,11 +137,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         </section>
 
         <section className="portal-section portal-legends" aria-labelledby="portal-legends-title">
-          <div className="portal-heading"><div><p className="portal-kicker">Sử Việt trong game</p><h2 id="portal-legends-title">Những tên tuổi làm nên hào khí</h2><p>Tranh minh họa các danh tướng trong thế giới Hào Khí Đại Việt.</p></div><button type="button" onClick={onOpenAdvisors}>Khám phá quân sư <ArrowRight aria-hidden="true" /></button></div>
+          <div className="portal-heading"><div><p className="portal-kicker">Sử Việt trong game</p><h2 id="portal-legends-title">Những tên tuổi làm nên hào khí</h2></div><button type="button" onClick={onOpenAdvisors}>Khám phá quân sư <ArrowRight aria-hidden="true" /></button></div>
           <div className="portal-legend-grid">
-            {legends.map((legend, index) => (
+            {legends.map((legend) => (
               <figure className="portal-legend" key={legend.name}>
-                <div className={`portal-legend-image portrait-${index + 1}`} role="img" aria-label={`Tranh minh họa ${legend.name}`} />
+                <img className="portal-legend-image" src={legend.image} alt={`Tranh minh họa ${legend.name}`} loading="lazy" decoding="async" />
                 <figcaption><span>{legend.note}</span><strong>{legend.name}</strong></figcaption>
               </figure>
             ))}
