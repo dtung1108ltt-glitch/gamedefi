@@ -11,18 +11,17 @@
   background: #04101b;
   color: var(--portal-ivory);
 }
-.portal-home::before {
-  content: '';
+.portal-home-backdrop {
   position: fixed;
-  inset: 0;
-  z-index: -1;
+  inset: 66px 0 0;
+  z-index: 0;
   pointer-events: none;
   background:
-    linear-gradient(180deg, #04101b13 0%, #04101b69 55%, #04101b95 100%),
-    url('/dai-viet-page-background.png') center center / cover no-repeat;
+    linear-gradient(180deg, #04101b13 0%, #04101b62 55%, #04101b9b 100%),
+    url('/dai-viet-home-background.webp') center top / cover no-repeat;
 }
-.portal-container { width: min(100%, 1500px); margin-inline: auto; padding: 0 clamp(20px, 4.2vw, 70px) 68px; background: linear-gradient(180deg, #04101b38, #04101b8c); }
-.portal-hero { position: relative; isolation: isolate; min-height: 480px; border-bottom: 1px solid #775b37; }
+.portal-container { position: relative; z-index: 1; width: min(100%, 1500px); margin-inline: auto; padding: 0 clamp(20px, 4.2vw, 70px) 68px; background: linear-gradient(180deg, #04101b38, #04101b8c); }
+.portal-hero { position: relative; z-index: 1; isolation: isolate; min-height: 480px; border-bottom: 1px solid #775b37; }
 .portal-hero::before {
   content: ''; position: absolute; inset: 0; z-index: -1;
   background: linear-gradient(90deg, #03101de8 0%, #03101dc3 25%, #03101d58 48%, transparent 70%), linear-gradient(0deg, #03101dc9, transparent 29%);
@@ -139,7 +138,7 @@
   .portal-feature-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 700px) {
-  .portal-home::before { background-position: center, 57% center; }
+  .portal-home-backdrop { background-position: center, 57% top; }
   .portal-hero { min-height: 635px; }
   .portal-hero-content { min-height: 635px; align-items: end; padding-top: 190px; padding-bottom: 54px; }
   .portal-hero::before { background: linear-gradient(0deg, #03101cfb, #03101cf1 40%, #03101c66 70%, transparent); }
@@ -151,6 +150,7 @@
   .portal-path-list { overflow-x: auto; grid-template-columns: repeat(5, minmax(130px, 1fr)); padding-bottom: 4px; }
 }
 @media (max-width: 460px) {
+  .portal-home-backdrop { top: 58px; }
   .portal-hero { min-height: 660px; }
   .portal-hero-content { min-height: 660px; padding-top: 180px; padding-bottom: 42px; }
   .portal-hero h1 { font-size: clamp(2.9rem, 12vw, 3.6rem); }

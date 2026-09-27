@@ -79,6 +79,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
   return (
     <div className="portal-home">
+      <div className="portal-home-backdrop" aria-hidden="true" />
       <section className="portal-hero" aria-labelledby="portal-title">
         <div className="portal-hero-content">
           <div className="portal-hero-copy">
