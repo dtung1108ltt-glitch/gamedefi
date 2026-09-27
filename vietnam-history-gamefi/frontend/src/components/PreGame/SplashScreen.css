@@ -30,7 +30,7 @@
 .portal-hero-copy { width: min(680px, 60%); }
 .portal-kicker { margin: 0 0 10px; color: var(--portal-gold); font-size: .67rem; font-weight: 800; letter-spacing: .23em; line-height: 1.4; text-transform: uppercase; }
 .portal-hero-title-lockup { position: relative; display: inline-block; max-width: 100%; margin-top: 24px; padding-right: 38px; }
-.portal-hero h1 { margin: 0; color: #f2c77f; font-family: 'Bodoni Moda', 'Noto Serif', serif; font-size: clamp(4.1rem, 7.2vw, 7.8rem); font-weight: 900; font-kerning: normal; letter-spacing: -.09em; line-height: .88; text-transform: uppercase; -webkit-text-stroke: .4px #86522e; text-shadow: 1px 1px 0 #a76a3b, 2px 2px 0 #8a4c2b, 3px 3px 0 #633520, 5px 7px 8px #030b12c9; }
+.portal-hero h1 { margin: 0; color: #f2c77f; font-family: 'Cinzel Decorative', 'Noto Serif', serif; font-size: clamp(4.1rem, 7.2vw, 7.8rem); font-weight: 900; font-kerning: normal; letter-spacing: -.07em; line-height: .88; text-transform: uppercase; -webkit-text-stroke: .4px #86522e; text-shadow: 1px 1px 0 #a76a3b, 2px 2px 0 #8a4c2b, 3px 3px 0 #633520, 5px 7px 8px #030b12c9; }
 .portal-hero h1 span { display: block; white-space: nowrap; }
 .portal-hero h1 span + span { margin-left: clamp(2rem, 5vw, 5.5rem); color: #edb66e; }
 .portal-hero-seal { position: absolute; right: 0; bottom: 4px; padding: 5px 4px; border: 1px solid #c94937; border-radius: 3px; color: #f36b54; font-family: 'Noto Serif', serif; font-size: .66rem; font-weight: 900; line-height: 1.08; text-align: center; text-transform: uppercase; transform: rotate(4deg); }
