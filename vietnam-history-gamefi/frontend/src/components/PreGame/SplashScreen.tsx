@@ -104,13 +104,6 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
               <span>Chiến thuật theo lượt</span><span>Tướng cố vấn</span><span>HKDV / SOL Devnet</span>
             </div>
           </div>
-          <aside className="portal-hero-collection" aria-label="Giới thiệu tướng lĩnh">
-            <div className="portal-collection-top"><Crown aria-hidden="true" /><span>Danh tướng Đại Việt</span></div>
-            <div className="portal-collection-portraits" aria-hidden="true">
-              {legends.map((legend) => <img className="portal-mini-portrait" src={legend.image} alt="" key={legend.name} />)}
-            </div>
-            <div className="portal-collection-bottom"><span>Khám phá những nhân vật lịch sử</span><button type="button" onClick={onOpenAdvisors} aria-label="Khám phá danh tướng"><ArrowRight aria-hidden="true" /></button></div>
-          </aside>
         </div>
       </section>
 
