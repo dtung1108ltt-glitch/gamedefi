@@ -23,12 +23,14 @@ import {
   TREASURY_FLOWS,
 } from '../../data/defi';
 import { DexSwapPanel } from './DexSwapPanel';
+import type { QuickSwapIntent } from '../../types/dex';
 import { GameTokenCard } from './GameTokenCard';
 
 interface DefiHubProps {
   player: Player;
   onBack: () => void;
   onPlayDrum: () => void;
+  initialSwap?: QuickSwapIntent | null;
 }
 
 const MODULE_ICONS: Record<DefiModule, React.ReactNode> = {
@@ -44,7 +46,7 @@ const NAV_MODULES = [
   ...DEFI_MODULES.filter((item) => item.id !== 'dex'),
 ];
 
-export const DefiHub: React.FC<DefiHubProps> = ({ player, onBack, onPlayDrum }) => {
+export const DefiHub: React.FC<DefiHubProps> = ({ player, onBack, onPlayDrum, initialSwap }) => {
   const [module, setModule] = useState<DefiModule>('dex');
   const [payAmount, setPayAmount] = useState('5.00');
   const [payTo, setPayTo] = useState('');
@@ -240,7 +242,7 @@ export const DefiHub: React.FC<DefiHubProps> = ({ player, onBack, onPlayDrum }) 
           )}
 
           {module === 'dex' && (
-            <DexSwapPanel player={player} onPlayDrum={onPlayDrum} />
+            <DexSwapPanel player={player} onPlayDrum={onPlayDrum} initialSwap={initialSwap} />
           )}
 
           {module === 'treasury' && (

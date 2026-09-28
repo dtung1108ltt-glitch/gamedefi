@@ -4,6 +4,7 @@ import { useWallet } from './hooks/useWallet';
 import { useFaction } from './hooks/useFaction';
 import { useAudio } from './hooks/useAudio';
 import { apiService } from './services/api';
+import type { QuickSwapIntent } from './types/dex';
 import { Header } from './components/Common/Header';
 import { WalletModal } from './components/Wallet/WalletModal';
 import { SplashScreen } from './components/PreGame/SplashScreen';
@@ -19,6 +20,8 @@ import './App.css';
 export const App: React.FC = () => {
   const [step, setStep] = useState<PreGameStep>('splash');
   const [isWalletModalOpen, setIsWalletModalOpen] = useState<boolean>(false);
+  const [quickSwapIntent, setQuickSwapIntent] = useState<QuickSwapIntent | null>(null);
+  const [resumeDexAfterAuth, setResumeDexAfterAuth] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<MapLocation | null>(null);
 
   useLayoutEffect(() => {
@@ -83,14 +86,14 @@ export const App: React.FC = () => {
     }
   };
 
-  // Wallet: open connect modal
-  const handleEnterWithWallet = () => {
-    setIsWalletModalOpen(true);
-  };
-
   // After wallet connection succeeds
   const handleConnectWallet = async (chosenChain: ChainType) => {
     const p = await connectAndAuth(chosenChain);
+    if (resumeDexAfterAuth) {
+      setResumeDexAfterAuth(false);
+      setStep('defi');
+      return;
+    }
     if (p.faction_id) {
       setStep('lobby');
     } else {
@@ -101,6 +104,8 @@ export const App: React.FC = () => {
   const handleDisconnect = () => {
     disconnect();
     setGuestPlayer(null);
+    setQuickSwapIntent(null);
+    setResumeDexAfterAuth(false);
     setStep('splash');
   };
 
@@ -114,8 +119,12 @@ export const App: React.FC = () => {
     setStep(effectivePlayer.faction_id ? 'advisor_council' : 'faction_select');
   };
 
-  const handleOpenDex = () => {
-    if (!effectivePlayer || effectivePlayer.is_guest) setIsWalletModalOpen(true);
+  const handleOpenDex = (intent?: QuickSwapIntent) => {
+    setQuickSwapIntent(intent ?? null);
+    if (!effectivePlayer || effectivePlayer.is_guest) {
+      setResumeDexAfterAuth(true);
+      setIsWalletModalOpen(true);
+    }
     else setStep('defi');
   };
 
@@ -147,7 +156,6 @@ export const App: React.FC = () => {
           <SplashScreen
             player={effectivePlayer ?? null}
             onEnterF2P={handleEnterF2P}
-            onEnterWithWallet={handleEnterWithWallet}
             onOpenCampaign={handleOpenCampaign}
             onOpenAdvisors={handleOpenAdvisors}
             onOpenMarketplace={() => setStep('marketplace')}
@@ -218,6 +226,7 @@ export const App: React.FC = () => {
         {step === 'defi' && effectivePlayer && (
           <DefiHub
             player={effectivePlayer}
+            initialSwap={quickSwapIntent}
             onBack={() => setStep(effectivePlayer.faction_id ? 'lobby' : 'splash')}
             onPlayDrum={playDrum}
           />
@@ -252,7 +261,7 @@ export const App: React.FC = () => {
       {/* Solana Wallet Modal */}
       <WalletModal
         isOpen={isWalletModalOpen}
-        onClose={() => setIsWalletModalOpen(false)}
+        onClose={() => { setIsWalletModalOpen(false); setResumeDexAfterAuth(false); }}
         onConnect={handleConnectWallet}
         isConnecting={isConnecting}
         authStep={authStep}
@@ -263,26 +272,28 @@ export const App: React.FC = () => {
 
       <footer className="app-footer">
         <div className="app-footer-inner">
-          <div className="app-footer-brand"><img src="/drum_icon.svg" alt="" /><div><strong>Hào Khí Đại Việt</strong><span>Kiêu hùng quá khứ. Kiến tạo tương lai.</span></div></div>
-          <nav aria-label="Liên kết cuối trang">
+          <div className="app-footer-brand">
+            <img src="/hao-khi-footer.png" alt="Hào Khí Đại Việt" loading="lazy" />
+            <p>Kiêu hùng quá khứ. Kiến tạo tương lai.<br />GameFi mang dấu ấn Việt sử trên Solana.</p>
+          </div>
+          <nav className="app-footer-links" aria-label="Sản phẩm"><strong>Sản phẩm</strong>
             <button type="button" onClick={() => setStep('splash')}>Trang chủ</button>
             <button type="button" onClick={handleOpenCampaign}>Chiến dịch</button>
             <button type="button" onClick={() => setStep('marketplace')}>Marketplace</button>
-            <button type="button" onClick={handleOpenDex}>DEX</button>
+            <button type="button" onClick={() => handleOpenDex()}>DEX</button>
           </nav>
-          <a
-            href="https://github.com/duynguyen658/gamedefi"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Mở GitHub của Hào Khí Đại Việt"
-            title="GitHub của Hào Khí Đại Việt"
-            className="app-footer-github"
-          >
-            <svg viewBox="0 0 16 16" className="h-6 w-6" fill="currentColor" aria-hidden="true">
-              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.65 7.65 0 018 4.44c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-            </svg>
-          </a>
+          <nav className="app-footer-links" aria-label="Tài nguyên"><strong>Tài nguyên</strong>
+            <a href="https://github.com/duynguyen658/gamedefi" target="_blank" rel="noopener noreferrer">Mã nguồn</a>
+            <a href="https://github.com/duynguyen658/gamedefi/tree/main/vietnam-history-gamefi/docs" target="_blank" rel="noopener noreferrer">Tài liệu</a>
+            <button type="button" onClick={() => { setStep('splash'); window.setTimeout(() => document.getElementById('leaderboard')?.scrollIntoView({ behavior: 'smooth' }), 60); }}>Bảng xếp hạng</button>
+          </nav>
+          <div className="app-footer-community"><strong>Cộng đồng</strong><p>Theo dõi hành trình Hào Khí Đại Việt và góp ý trực tiếp trên GitHub.</p>
+            <a href="https://github.com/duynguyen658/gamedefi" target="_blank" rel="noopener noreferrer" aria-label="GitHub Hào Khí Đại Việt" className="app-footer-github">
+              <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.65 7.65 0 018 4.44c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" /></svg>
+            </a>
+          </div>
         </div>
+        <div className="app-footer-bottom">© {new Date().getFullYear()} Hào Khí Đại Việt · Solana Devnet</div>
       </footer>
 
     </div>

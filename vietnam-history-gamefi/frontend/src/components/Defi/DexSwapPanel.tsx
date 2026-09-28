@@ -24,12 +24,13 @@ import {
 } from '../../services/dexBalances';
 import { formatBaseUnits, uiAmountToBaseUnits } from '../../services/dexMath';
 import { buildRaydiumSwapTransaction } from '../../services/raydiumSwap';
-import type { DexConfig, DexExecution, DexOrder, DexSwapHistory } from '../../types/dex';
+import type { DexConfig, DexExecution, DexOrder, DexSwapHistory, QuickSwapIntent } from '../../types/dex';
 import { GameTokenCard } from './GameTokenCard';
 
 interface DexSwapPanelProps {
   player: Player;
   onPlayDrum: () => void;
+  initialSwap?: QuickSwapIntent | null;
 }
 
 type BalanceStatus = 'loading' | 'ready' | 'error' | 'wallet-required';
@@ -37,6 +38,10 @@ type RequestStatus = 'idle' | 'quoting' | 'signing' | 'executing';
 
 const EMPTY_BALANCES: DexBalances = { SOL: '0', HKDV: '0', USDC: '0' };
 const QUOTE_TOKEN: DexTokenSymbol = SOLANA_NETWORK === 'devnet' || SOLANA_NETWORK === 'mainnet-beta' ? 'HKDV' : 'USDC';
+
+function tokenLogo(symbol: DexTokenSymbol): string | null {
+  return symbol === 'HKDV' ? '/drum_icon.svg' : symbol === 'SOL' ? '/solana-token.svg' : null;
+}
 
 function newIdempotencyKey(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -57,10 +62,10 @@ function apiError(error: unknown): string {
   return error instanceof Error ? error.message : 'DEX không thể xử lý yêu cầu lúc này.';
 }
 
-export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum }) => {
-  const [fromToken, setFromToken] = useState<DexTokenSymbol>('SOL');
-  const [toToken, setToToken] = useState<DexTokenSymbol>(QUOTE_TOKEN);
-  const [amount, setAmount] = useState('');
+export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, initialSwap }) => {
+  const [fromToken, setFromToken] = useState<DexTokenSymbol>(initialSwap?.fromToken ?? 'SOL');
+  const [toToken, setToToken] = useState<DexTokenSymbol>(initialSwap?.fromToken === 'HKDV' ? 'SOL' : QUOTE_TOKEN);
+  const [amount, setAmount] = useState(initialSwap?.amount ?? '');
   const [slippageBps, setSlippageBps] = useState(50);
   const [balances, setBalances] = useState<DexBalances>(EMPTY_BALANCES);
   const [dexConfig, setDexConfig] = useState<DexConfig | null>(null);
@@ -242,7 +247,9 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum }
             {tokens.map((token) => (
               <div key={token.symbol} className="flex items-center justify-between gap-3 py-3 first:pt-0">
                 <dt className="flex items-center gap-2 text-sm font-semibold text-slate-200">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-imperial-border bg-imperial-slate text-xs text-imperial-lightgold">{token.symbol === 'SOL' ? '◎' : 'H'}</span>
+                  {tokenLogo(token.symbol)
+                    ? <img src={tokenLogo(token.symbol)!} alt="" className="h-8 w-8 rounded-full" />
+                    : <span className="flex h-8 w-8 items-center justify-center rounded-full border border-imperial-border bg-imperial-slate text-xs text-imperial-lightgold">U</span>}
                   {token.symbol}
                 </dt>
                 <dd className="min-w-0 break-all text-right text-sm font-bold tabular-nums text-imperial-lightgold">
@@ -316,6 +323,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum }
               >
                 Tối đa
               </button>
+              {tokenLogo(fromToken) && <img src={tokenLogo(fromToken)!} alt="" className="h-8 w-8 flex-none rounded-full" />}
               <select
                 value={fromToken}
                 onChange={(event) => {
@@ -353,7 +361,9 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum }
               <span className={`min-w-0 break-all text-2xl font-semibold tabular-nums ${outputDisplay ? 'text-imperial-lightgold' : 'text-slate-500'}`}>
                 {outputDisplay || 'Chưa có báo giá'}
               </span>
-              <span className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300">{toToken}</span>
+              <span className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300">
+                {tokenLogo(toToken) && <img src={tokenLogo(toToken)!} alt="" className="h-6 w-6 rounded-full" />}{toToken}
+              </span>
             </div>
           </div>
 

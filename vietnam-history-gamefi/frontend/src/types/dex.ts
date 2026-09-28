@@ -1,5 +1,10 @@
 import type { DexTokenSymbol } from '../services/dexBalances';
 
+export interface QuickSwapIntent {
+  fromToken: 'SOL' | 'HKDV';
+  amount: string;
+}
+
 export interface DexOrderRequest {
   wallet: string;
   input_symbol: DexTokenSymbol;

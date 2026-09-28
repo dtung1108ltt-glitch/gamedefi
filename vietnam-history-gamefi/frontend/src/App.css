@@ -36,23 +36,28 @@
 .battle-board { background: linear-gradient(#0a2430e9, #071e21ef), url('/dai-viet-worlds.webp') 50% center / 300% 100%; }
 .faction-select-heading { border-radius: 6px; background: linear-gradient(90deg, #071521f7, #071521d9 55%, #07152166), url('/dai-viet-hero.webp') 81% center / cover; }
 .faction-detail { background: linear-gradient(125deg, #0d2636, #071724) !important; }
-.app-footer { border-top: 1px solid #82694b; background: #04101b; }
-.app-footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 24px; width: min(100%, 1500px); margin: auto; padding: 22px clamp(20px, 4.2vw, 70px); }
-.app-footer-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.app-footer-brand img { width: 38px; height: 38px; }
-.app-footer-brand div { display: grid; gap: 2px; }
-.app-footer-brand strong { color: #efc77f; font-family: 'Noto Serif', 'Be Vietnam Pro', serif; font-size: .9rem; text-transform: uppercase; }
-.app-footer-brand span { color: #9fb4bb; font-size: .63rem; }
-.app-footer nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 20px; }
-.app-footer nav button { color: #c6d2d4; font-size: .68rem; }
-.app-footer nav button:hover { color: #f4c77a; }
-.app-footer-github { display: grid; flex: none; place-items: center; width: 38px; height: 38px; border: 1px solid #617784; border-radius: 50%; color: #d3dee0; transition: color .2s ease, border-color .2s ease; }
+.app-footer { position: relative; z-index: 2; border-top: 1px solid #82694b; background: #03111c; }
+.app-footer-inner { display: grid; grid-template-columns: minmax(270px, 1.55fr) repeat(3, minmax(120px, .6fr)); gap: clamp(18px, 3vw, 48px); width: min(100%, 1500px); margin: auto; padding: 24px clamp(20px, 4.2vw, 70px) 20px; }
+.app-footer-brand { min-width: 0; }
+.app-footer-brand img { display: block; width: min(100%, 275px); height: auto; aspect-ratio: 3 / 1; object-fit: contain; object-position: left center; }
+.app-footer-brand p { margin: 5px 0 0; color: #bacbd1; font-size: .68rem; line-height: 1.55; }
+.app-footer-links { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+.app-footer-links strong, .app-footer-community > strong { display: block; margin-bottom: 5px; color: #f5e5c6; font-size: .74rem; }
+.app-footer-links :is(button, a) { color: #b7c8ce; font-size: .68rem; line-height: 1.4; text-align: left; }
+.app-footer-links :is(button, a):hover { color: #f4c77a; }
+.app-footer-community p { max-width: 22ch; margin: 0 0 10px; color: #b7c8ce; font-size: .67rem; line-height: 1.5; }
+.app-footer-github { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #617784; border-radius: 50%; color: #d3dee0; transition: color .2s ease, border-color .2s ease; }
 .app-footer-github:hover { border-color: #e6c17b; color: #f5d28e; }
-.app-footer-github svg { width: 20px; height: 20px; }
+.app-footer-github svg { width: 18px; height: 18px; }
+.app-footer-bottom { border-top: 1px solid #2b4150; padding: 9px 20px 13px; color: #829aa6; font-size: .6rem; text-align: center; }
 .app-footer :is(button, a):focus-visible { outline: 2px solid #f5d28e; outline-offset: 3px; }
 @media (max-width: 700px) {
   .market-empty { grid-template-columns: 1fr; }
   .market-empty-art { min-height: 165px; background: linear-gradient(0deg, #0a2230, #0a223000), url('/dai-viet-legends.webp') 0% 32% / 400% auto; }
-  .app-footer-inner { align-items: flex-start; flex-direction: column; }
-  .app-footer nav { justify-content: flex-start; }
+  .app-footer-inner { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-footer-brand { grid-column: 1 / -1; }
+}
+@media (max-width: 420px) {
+  .app-footer-inner { gap: 22px 14px; }
+  .app-footer-community { grid-column: 1 / -1; }
 }

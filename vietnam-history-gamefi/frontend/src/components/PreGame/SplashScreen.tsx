@@ -1,17 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { ArrowLeftRight, ArrowRight, BookOpen, ChevronRight, CircleHelp, Coins, Crown, Flag, Play, Shield, ShoppingBag, Swords, Trophy, Wallet } from 'lucide-react';
-import { Player, LeaderboardEntry } from '../../types';
-import { apiService, DEFAULT_FACTIONS } from '../../services/api';
+import React, { useState } from 'react';
+import { ArrowDownUp, ArrowLeftRight, ArrowRight, BookOpen, Check, ChevronRight, Coins, Crown, Flag, LockKeyhole, Play, Shield, ShoppingBag, Swords, Trophy } from 'lucide-react';
+import { Player } from '../../types';
+import type { QuickSwapIntent } from '../../types/dex';
+import { DEFAULT_FACTIONS } from '../../services/api';
 import './SplashScreen.css';
 
 interface SplashScreenProps {
   player: Player | null;
   onEnterF2P: () => void;
-  onEnterWithWallet: () => void;
   onOpenCampaign: () => void;
   onOpenAdvisors: () => void;
   onOpenMarketplace: () => void;
-  onOpenDex: () => void;
+  onOpenDex: (intent?: QuickSwapIntent) => void;
   onPlayDrum: () => void;
   onPlayGong: () => void;
 }
@@ -31,17 +31,25 @@ const legends = [
 ];
 
 const chapters = [
-  { name: 'Văn Lang – Âu Lạc', era: 'Mở đầu dựng nước' },
-  { name: 'Nhà Ngô – Nhà Đinh', era: 'Bạch Đằng • Hoa Lư' },
-  { name: 'Nhà Lý', era: 'Thăng Long' },
-  { name: 'Nhà Trần', era: 'Hào khí Đông A' },
-  { name: 'Tây Sơn', era: 'Thần tốc Bắc Hà' },
+  { name: 'Bạch Đằng', era: 'Thủy chiến mở màn', available: true },
+  { name: 'Khởi nghĩa', era: 'Gây dựng nghĩa quân', available: false },
+  { name: 'Thống nhất', era: 'Quy tụ anh hùng', available: false },
+  { name: 'Bắc phạt', era: 'Tiến quân ra Bắc', available: false },
+  { name: 'Vươn ra biển lớn', era: 'Chương mới', available: false },
 ];
+
+const seasonLeaders = [
+  { name: 'Đại Việt Dũng Sĩ', level: 52, power: 1420580, wins: 92 },
+  { name: 'Trần Quốc Tuấn', level: 48, power: 1280430, wins: 114 },
+  { name: 'BinhKhíRồngÁ', level: 45, power: 980210, wins: 138 },
+  { name: 'Hồng Hà Nhi', level: 49, power: 760332, wins: 82 },
+  { name: 'Nam Thiên Đế', level: 40, power: 650118, wins: 104 },
+];
+type RankMetric = 'power' | 'level' | 'wins';
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({
   player,
   onEnterF2P,
-  onEnterWithWallet,
   onOpenCampaign,
   onOpenAdvisors,
   onOpenMarketplace,
@@ -49,33 +57,21 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   onPlayDrum,
   onPlayGong,
 }) => {
-  const [leaders, setLeaders] = useState<LeaderboardEntry[]>([]);
-  const [isLoadingLeaders, setIsLoadingLeaders] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    apiService.getLeaderboard().then((items) => {
-      if (active) {
-        setLeaders(items.slice(0, 5));
-      }
-    }).catch(() => {
-      if (active) setLeaders([]);
-    }).finally(() => {
-      if (active) setIsLoadingLeaders(false);
-    });
-    return () => { active = false; };
-  }, []);
+  const [rankMetric, setRankMetric] = useState<RankMetric>('power');
+  const [swapFrom, setSwapFrom] = useState<'HKDV' | 'SOL'>('HKDV');
+  const [swapAmount, setSwapAmount] = useState('');
+  const rankedLeaders = [...seasonLeaders].sort((a, b) => b[rankMetric] - a[rankMetric]);
 
   const startGame = () => {
     onPlayGong();
     if (player) onOpenCampaign();
     else onEnterF2P();
   };
-  const connectWallet = () => {
+  const openQuickSwap = () => {
     onPlayDrum();
-    onEnterWithWallet();
+    onOpenDex({ fromToken: swapFrom, amount: swapAmount });
   };
-  const actions = [startGame, onOpenAdvisors, onOpenMarketplace, onOpenDex];
+  const actions = [startGame, onOpenAdvisors, onOpenMarketplace, () => onOpenDex()];
 
   return (
     <div className="portal-home">
@@ -150,32 +146,56 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           </div>
         </section>
 
-        <div className="portal-feature-grid">
+        <div className="portal-feature-grid portal-showcase-grid">
           <section className="portal-panel portal-path" aria-labelledby="portal-path-title">
-            <div className="portal-panel-heading"><div><p className="portal-kicker">Bắt đầu hành trình</p><h2 id="portal-path-title">Dấu mốc Việt sử</h2><p>Những triều đại truyền cảm hứng cho game. Trận Bạch Đằng hiện đã có thể chơi.</p></div><button type="button" onClick={startGame}>Vào chiến dịch <ArrowRight aria-hidden="true" /></button></div>
-            <ol className="portal-path-list">{chapters.map((chapter, index) => <li key={chapter.name}><span>{String(index + 1).padStart(2, '0')}</span><strong>{chapter.name}</strong><small>{chapter.era}</small></li>)}</ol>
+            <div className="portal-panel-heading"><div><h2 id="portal-path-title">Lộ trình chinh phạt</h2><p>Khám phá các chương truyện lịch sử, mở khóa tướng lĩnh và nhận phần thưởng.</p></div><button type="button" onClick={startGame}>Xem chi tiết <ArrowRight aria-hidden="true" /></button></div>
+            <ol className="portal-path-list">
+              {chapters.map((chapter, index) => <li className={chapter.available ? 'is-available' : 'is-locked'} key={chapter.name}>
+                <div className={`portal-path-art portal-path-art-${index + 1}`} aria-hidden="true" />
+                <span className="portal-path-marker" aria-label={chapter.available ? 'Có thể chơi' : 'Sắp mở'}>{chapter.available ? <Check aria-hidden="true" /> : <LockKeyhole aria-hidden="true" />}</span>
+                <span className="portal-path-chapter">Chương {index + 1}</span>
+                <strong>{chapter.name}</strong><small>{chapter.available ? chapter.era : 'Sắp mở · ' + chapter.era}</small>
+              </li>)}
+            </ol>
           </section>
           <section className="portal-panel portal-trade" aria-labelledby="portal-trade-title">
-            <div className="portal-panel-heading"><div><p className="portal-kicker">Solana Devnet</p><h2 id="portal-trade-title">Giao thương HKDV</h2><p>Xem tỷ giá và điều kiện đổi trước khi ký trong DEX.</p></div></div>
-            <div className="portal-token-pair"><div><Coins aria-hidden="true" /><span>HKDV</span></div><ArrowLeftRight aria-hidden="true" /><div><Wallet aria-hidden="true" /><span>SOL</span></div></div>
-            <p className="portal-trade-note"><CircleHelp aria-hidden="true" /> Tỷ giá và số dư thật sẽ hiển thị trong DEX sau khi kết nối ví.</p>
-            <button type="button" className="portal-button portal-button-primary" onClick={player && !player.is_guest ? onOpenDex : connectWallet}>{player && !player.is_guest ? 'Mở DEX' : 'Kết nối ví để giao dịch'} <ArrowRight aria-hidden="true" /></button>
+            <div className="portal-panel-heading"><div><h2 id="portal-trade-title">Swap nhanh</h2><p>Đổi HKDV và SOL trên Solana Devnet.</p></div><button type="button" onClick={() => onOpenDex()}>Mở DEX <ArrowRight aria-hidden="true" /></button></div>
+            <div className="portal-swap-form">
+              <label className="portal-swap-row">
+                <span className="portal-swap-token"><img src={swapFrom === 'HKDV' ? '/drum_icon.svg' : '/solana-token.svg'} alt="" /><strong>{swapFrom}</strong></span>
+                <span className="portal-swap-field"><span>Bạn gửi</span><input inputMode="decimal" type="text" value={swapAmount} onChange={(event) => setSwapAmount(event.target.value.replace(/[^\d.,]/g, ''))} placeholder="0.00" aria-label={`Số lượng ${swapFrom} muốn đổi`} /></span>
+              </label>
+              <button className="portal-swap-reverse" type="button" onClick={() => { setSwapFrom(swapFrom === 'HKDV' ? 'SOL' : 'HKDV'); setSwapAmount(''); }} aria-label="Đảo chiều cặp giao dịch"><ArrowDownUp aria-hidden="true" /></button>
+              <div className="portal-swap-row portal-swap-result">
+                <span className="portal-swap-token"><img src={swapFrom === 'HKDV' ? '/solana-token.svg' : '/drum_icon.svg'} alt="" /><strong>{swapFrom === 'HKDV' ? 'SOL' : 'HKDV'}</strong></span>
+                <span className="portal-swap-field"><span>Bạn nhận</span><strong>—</strong></span>
+              </div>
+            </div>
+            <button type="button" className="portal-swap-submit" onClick={openQuickSwap}>Hoán đổi trong DEX <ArrowRight aria-hidden="true" /></button>
+            <p className="portal-trade-note">Tỷ giá, phí và số dư thực tế được xác nhận trong DEX trước khi ký ví.</p>
           </section>
         </div>
 
         <div className="portal-feature-grid portal-bottom-grid">
           <section id="leaderboard" className="portal-panel portal-leaderboard" aria-labelledby="portal-leaderboard-title">
-            <div className="portal-panel-heading"><div><p className="portal-kicker">Thành tích cộng đồng</p><h2 id="portal-leaderboard-title">Bảng xếp hạng</h2></div></div>
-            {isLoadingLeaders ? <p className="portal-empty">Đang tải thứ hạng…</p> : leaders.length ? (
-              <div className="portal-leader-table" role="table" aria-label="Bảng xếp hạng người chơi">
-                <div role="row" className="portal-leader-head"><span role="columnheader">Hạng</span><span role="columnheader">Tướng quân</span><span role="columnheader">Triều đại</span><span role="columnheader">Điểm danh vọng</span></div>
-                {leaders.map((leader) => <div role="row" key={leader.wallet}><span role="cell">{String(leader.rank).padStart(2, '0')}</span><strong role="cell">{leader.username}</strong><span role="cell">{leader.faction_name}</span><span role="cell">{leader.reputation_score.toLocaleString('vi-VN')}</span></div>)}
-              </div>
-            ) : <p className="portal-empty">Chưa có thứ hạng để hiển thị. Hãy vào chiến dịch và ghi dấu tên mình.</p>}
+            <div className="portal-panel-heading"><div><h2 id="portal-leaderboard-title">Bảng xếp hạng mùa giải</h2><p className="portal-mock-label">Dữ liệu minh họa · Phần thưởng dự kiến</p></div><button type="button" onClick={startGame}>Vào chiến dịch <ArrowRight aria-hidden="true" /></button></div>
+            <div className="portal-rank-tabs" role="group" aria-label="Sắp xếp bảng xếp hạng">
+              {([['power', 'Tổng lực chiến'], ['level', 'Cấp độ'], ['wins', 'Trận thắng']] as const).map(([metric, label]) => <button type="button" key={metric} className={rankMetric === metric ? 'is-active' : ''} aria-pressed={rankMetric === metric} onClick={() => setRankMetric(metric)}>{label}</button>)}
+            </div>
+            <div className="portal-leader-scroll"><div className="portal-leader-table" role="table" aria-label="Bảng xếp hạng mùa giải minh họa">
+              <div role="row" className="portal-leader-head"><span role="columnheader">#</span><span role="columnheader">Người chơi</span><span role="columnheader">Cấp độ</span><span role="columnheader">{rankMetric === 'wins' ? 'Trận thắng' : 'Lực chiến'}</span><span role="columnheader">Phần thưởng</span></div>
+              {rankedLeaders.map((leader, index) => <div role="row" key={leader.name}>
+                <span className={`portal-rank-number rank-${index + 1}`} role="cell">{index + 1}</span>
+                <strong role="cell"><span className="portal-rank-avatar" aria-hidden="true">{leader.name.slice(0, 1)}</span>{leader.name}</strong>
+                <span role="cell">Lv.{leader.level}</span>
+                <span role="cell">{(rankMetric === 'wins' ? leader.wins : leader.power).toLocaleString('vi-VN')}</span>
+                <span className="portal-rank-reward" role="cell"><img src="/drum_icon.svg" alt="" />{[2500, 1500, 800, 500, 300][index].toLocaleString('vi-VN')} HKDV</span>
+              </div>)}
+            </div></div>
           </section>
           <section className="portal-panel portal-spotlight" aria-labelledby="portal-spotlight-title">
             <div className="portal-spotlight-art" aria-hidden="true" />
-            <div className="portal-spotlight-content"><p className="portal-kicker">Trận đánh tiêu biểu</p><h2 id="portal-spotlight-title">Bạch Đằng</h2><p>Dụng binh giữa thủy triều và cọc ngầm. Thử tài điều quân trong trận chiến đã đi vào sử Việt.</p><button type="button" onClick={startGame}>Bước vào chiến dịch <ChevronRight aria-hidden="true" /></button></div>
+            <div className="portal-spotlight-content"><p className="portal-kicker">Chiến dịch nổi bật · Có thể chơi</p><h2 id="portal-spotlight-title">Bạch Đằng</h2><p>Dụng binh giữa thủy triều và cọc ngầm. Thử tài điều quân trong trận chiến đã đi vào sử Việt.</p><button type="button" onClick={startGame}>Tham gia ngay <ChevronRight aria-hidden="true" /></button></div>
           </section>
         </div>
       </div>
