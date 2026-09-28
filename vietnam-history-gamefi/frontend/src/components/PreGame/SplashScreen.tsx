@@ -157,6 +157,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                 <strong>{chapter.name}</strong><small>{chapter.available ? chapter.era : 'Sắp mở · ' + chapter.era}</small>
               </li>)}
             </ol>
+            <div className="portal-path-progress" aria-label="1 trong 5 chương đã mở">
+              <span>Đã mở 1/5 chương</span><div aria-hidden="true"><i /></div><span>4 chương sắp mở</span>
+            </div>
           </section>
           <section className="portal-panel portal-trade" aria-labelledby="portal-trade-title">
             <div className="portal-panel-heading"><div><h2 id="portal-trade-title">Swap nhanh</h2><p>Đổi HKDV và SOL trên Solana Devnet.</p></div><button type="button" onClick={() => onOpenDex()}>Mở DEX <ArrowRight aria-hidden="true" /></button></div>

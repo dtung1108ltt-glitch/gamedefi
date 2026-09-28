@@ -105,6 +105,10 @@
 .portal-path-chapter { margin-top: 3px; color: #bfced1; font-size: .63rem; }
 .portal-path-list strong { color: #f6eee0; font-size: .76rem; line-height: 1.3; }
 .portal-path-list small { color: #a7bdc4; font-size: .6rem; line-height: 1.35; }
+.portal-path-progress { display: flex; align-items: center; gap: 12px; margin-top: auto; padding-top: 22px; color: #b9cbd1; font-size: .62rem; white-space: nowrap; }
+.portal-path-progress > div { flex: 1; height: 5px; overflow: hidden; border-radius: 9px; background: #35505d; }
+.portal-path-progress i { display: block; width: 20%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #d69c4d, #f1cf87); box-shadow: 0 0 9px #e8b36788; }
+.portal-path { display: flex; flex-direction: column; }
 .portal-trade { display: flex; flex-direction: column; }
 .portal-swap-form { position: relative; display: grid; gap: 9px; margin-top: 17px; }
 .portal-swap-row { display: flex; align-items: center; gap: 9px; min-height: 61px; padding: 8px 10px; border: 1px solid #466374; border-radius: 5px; background: #102838; }
@@ -159,6 +163,7 @@
   .portal-feature-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 700px) {
+  .portal-path-progress { padding-top: 14px; }
   .portal-home-backdrop { background-position: center, 57% top; }
   .portal-hero { min-height: 635px; }
   .portal-hero-content { min-height: 635px; align-items: end; padding-top: 190px; padding-bottom: 54px; }
