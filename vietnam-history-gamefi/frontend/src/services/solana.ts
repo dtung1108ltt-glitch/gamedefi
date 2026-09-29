@@ -32,19 +32,25 @@ export const solanaAdapter = {
     const signed = await provider().signMessage(new TextEncoder().encode(message), 'utf8');
     return bs58.encode(signed.signature);
   },
-  signVersionedTransaction: async (transactionBase64: string, expectedWallet: string): Promise<string> => {
+  signDexTransaction: async (transactionBase64: string, expectedWallet: string): Promise<string> => {
     const wallet = provider();
     const owner = wallet.publicKey ?? (await wallet.connect()).publicKey;
     if (owner.toBase58() !== expectedWallet) throw new Error('Ví đã đổi tài khoản. Hãy đăng nhập lại.');
-    let transaction: VersionedTransaction;
+    let transaction: Transaction | VersionedTransaction;
     try {
-      transaction = VersionedTransaction.deserialize(Buffer.from(transactionBase64, 'base64'));
+      const bytes = Buffer.from(transactionBase64, 'base64');
+      try {
+        transaction = Transaction.from(bytes);
+      } catch {
+        transaction = VersionedTransaction.deserialize(bytes);
+      }
     } catch {
       throw new Error('DEX trả transaction không hợp lệ.');
     }
-    const feePayer = transaction.message.staticAccountKeys[0];
+    const feePayer = transaction instanceof Transaction
+      ? transaction.feePayer : transaction.message.staticAccountKeys[0];
     if (!feePayer?.equals(owner)) throw new Error('Ví ký không phải fee payer của giao dịch DEX.');
-    let signed: VersionedTransaction;
+    let signed: Transaction | VersionedTransaction;
     try {
       signed = await wallet.signTransaction(transaction);
     } catch (reason) {

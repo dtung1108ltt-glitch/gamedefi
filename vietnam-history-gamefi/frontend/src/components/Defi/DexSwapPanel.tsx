@@ -242,7 +242,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
         ? await buildRaydiumSwapTransaction(order, player.wallet)
         : order.transaction;
       if (!unsignedTransaction) throw new Error('DEX không trả giao dịch để ký.');
-      const signedTransaction = await solanaAdapter.signVersionedTransaction(unsignedTransaction, player.wallet);
+      const signedTransaction = await solanaAdapter.signDexTransaction(unsignedTransaction, player.wallet);
       setRequestStatus('executing');
       const result = await apiService.executeDexOrder({
         wallet: player.wallet,

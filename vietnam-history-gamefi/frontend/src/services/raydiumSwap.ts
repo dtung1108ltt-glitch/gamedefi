@@ -1,4 +1,4 @@
-import { Connection, PublicKey, VersionedTransaction } from '@solana/web3.js';
+import { Connection, PublicKey, Transaction } from '@solana/web3.js';
 import { Buffer } from 'buffer';
 import BN from 'bn.js';
 import { CurveCalculator, DEV_API_URLS, FeeOn, Raydium, TxVersion } from '@raydium-io/raydium-sdk-v2';
@@ -90,26 +90,28 @@ export async function buildRaydiumSwapTransaction(
     swapResult,
     slippage: transactionSlippageBps / 10_000,
     baseIn,
-    txVersion: TxVersion.V0,
+    txVersion: TxVersion.LEGACY,
   });
-  if (!(built.transaction instanceof VersionedTransaction)) {
-    throw new Error('Raydium không tạo versioned transaction hợp lệ.');
+  if (!(built.transaction instanceof Transaction)) {
+    throw new Error('Raydium không tạo giao dịch legacy hợp lệ.');
   }
-  const staticKeys = built.transaction.message.staticAccountKeys.map((key) => key.toBase58());
+  built.transaction.feePayer = owner;
+  built.transaction.recentBlockhash = (await connection.getLatestBlockhash('finalized')).blockhash;
+  const staticKeys = built.transaction.compileMessage().accountKeys.map((key) => key.toBase58());
   if (!staticKeys.includes(PROGRAM_ID) || !staticKeys.includes(pair.pool) || staticKeys[0] !== expectedWallet) {
     throw new Error('Giao dịch Raydium không khớp ví hoặc pool đã chọn.');
   }
   // Phantom may report only "Unexpected error" for a transaction that cannot run.
   // Simulate against the same Devnet RPC used to build it before opening the wallet.
-  const simulation = await connection.simulateTransaction(built.transaction, {
-    commitment: 'confirmed',
-    sigVerify: false,
-  });
+  const simulation = await connection.simulateTransaction(built.transaction);
   if (simulation.value.err) {
     const programError = simulation.value.logs?.filter((line) =>
       line.startsWith('Program log: Error:') || line.includes('failed:')).pop();
     const detail = programError || JSON.stringify(simulation.value.err);
     throw new Error(`Giao dịch không qua mô phỏng Devnet: ${detail}. Hãy lấy báo giá mới và kiểm tra số dư SOL để trả phí.`);
   }
-  return Buffer.from(built.transaction.serialize()).toString('base64');
+  return Buffer.from(built.transaction.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  })).toString('base64');
 }

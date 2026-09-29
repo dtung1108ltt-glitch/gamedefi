@@ -1,7 +1,7 @@
 import base64
 
 from solders.hash import Hash
-from solders.instruction import Instruction
+from solders.instruction import AccountMeta, Instruction
 from solders.keypair import Keypair
 from solders.system_program import ID as SYSTEM_PROGRAM_ID
 from solders.message import Message
@@ -96,6 +96,20 @@ def test_signed_transaction_requires_pool_in_raydium_instruction():
         assert "không gọi đúng pool Raydium" in str(exc)
     else:
         raise AssertionError("transaction with an unrelated pool account must be rejected")
+
+
+def test_signed_legacy_transaction_with_raydium_pool_is_accepted():
+    owner = Keypair()
+    program = Keypair().pubkey()
+    pool = Keypair().pubkey()
+    instruction = Instruction(program, b"\x01", [AccountMeta(pool, False, True)])
+    message = Message.new_with_blockhash([instruction], owner.pubkey(), Hash.default())
+    transaction = VersionedTransaction(message, [owner])
+    encoded = base64.b64encode(bytes(transaction)).decode()
+
+    assert signed_transaction_signature(
+        encoded, str(owner.pubkey()), (str(program), str(pool)),
+    ) == str(transaction.signatures[0])
 
 
 def test_signed_jupiter_transaction_must_match_quoted_message():

@@ -3,7 +3,7 @@
 ## DEX đang hoạt động
 
 - SOL là tài sản gốc. Giao diện chỉ cung cấp cặp SOL/USDC thử và SOL/USDT thử trên Raydium CPMM Devnet.
-- Backend lấy reserve trực tiếp từ pool, xác minh mint, config và vault; frontend dựng versioned transaction, Phantom/Solflare ký; backend xác minh chữ ký, program và đúng pool của order trước khi gửi RPC.
+- Backend lấy reserve trực tiếp từ pool, xác minh mint, config và vault; frontend dựng giao dịch legacy và mô phỏng trên Devnet trước khi Phantom/Solflare ký; backend xác minh chữ ký, program và đúng pool của order trước khi gửi RPC.
 - USDC/USDT ở đây là token thử trên Devnet. Tỷ giá không phản ánh Mainnet và chúng không chuyển được sang Mainnet.
 - Pool USDC thử: `FeRts7d5DfXKXq1hGMkeiGEHayDdjsmSyJ41rHVcKo8t`; mint `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU`.
 - Pool USDT thử: `Bw9gaeKqQy5aTpi1BiSdV2p21REATtVXDdhjPUFjgq6N`; mint `9jWfcfEZToquBQmkoEViNSCt72veXwcvRGFQERXRjEk1`.
@@ -20,7 +20,7 @@
 1. Áp dụng migration trong `database/migrations/` cho PostgreSQL. Copy `backend/.env.example` thành `backend/.env` và `frontend/.env.example` thành `frontend/.env`.
 2. Chạy `uvicorn app.main:app --reload` trong `backend`, rồi chạy `npm run dev` trong `frontend`.
 3. Chuyển Phantom/Solflare sang Solana Devnet, nạp SOL thử, kết nối ví và mở DEX. Chọn token thử để nhận rồi lấy báo giá.
-4. Có thể dựng giao dịch chưa ký bằng `node scripts/raydium-swap-smoke.mjs --owner <public-address> --token USDC` trong `frontend`.
+4. Có thể dựng và mô phỏng giao dịch chưa ký bằng `node scripts/raydium-swap-smoke.mjs --owner <public-address> --token USDC --simulate` trong `frontend`.
 
 Hướng thiết kế: **tài chính phi tập trung minh bạch, an toàn, dễ tiếp cận**.
 

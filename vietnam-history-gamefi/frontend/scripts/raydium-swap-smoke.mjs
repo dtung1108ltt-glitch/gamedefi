@@ -10,7 +10,7 @@ import {
   Raydium,
   TxVersion,
 } from '@raydium-io/raydium-sdk-v2';
-import { Connection, Keypair, PublicKey, VersionedTransaction } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey, Transaction, VersionedTransaction } from '@solana/web3.js';
 import BN from 'bn.js';
 
 const POOLS = {
@@ -45,6 +45,7 @@ async function main() {
   if (!pair || !['sol-to-token', 'token-to-sol'].includes(direction)) throw new Error('Use --token USDC|USDT and --direction sol-to-token|token-to-sol');
   const inputAmount = new BN(String(args.get('--amount') || '1000000'));
   const slippageBps = Number(args.get('--slippage-bps') || 100);
+  const txVersion = args.has('--v0') ? TxVersion.V0 : TxVersion.LEGACY;
   const submit = args.has('--submit-devnet');
   let owner;
   if (submit) {
@@ -97,10 +98,18 @@ async function main() {
     swapResult,
     slippage: slippageBps / 10_000,
     baseIn,
-    txVersion: TxVersion.V0,
+    txVersion,
   });
-  if (!(built.transaction instanceof VersionedTransaction)) throw new Error('Expected a versioned transaction');
-  const keys = built.transaction.message.staticAccountKeys.map((key) => key.toBase58());
+  if (!(built.transaction instanceof VersionedTransaction) && !(built.transaction instanceof Transaction)) {
+    throw new Error('Expected a Solana transaction');
+  }
+  if (built.transaction instanceof Transaction) {
+    built.transaction.feePayer ??= ownerAddress;
+    built.transaction.recentBlockhash ??= (await connection.getLatestBlockhash('finalized')).blockhash;
+  }
+  const keys = built.transaction instanceof VersionedTransaction
+    ? built.transaction.message.staticAccountKeys.map((key) => key.toBase58())
+    : built.transaction.compileMessage().accountKeys.map((key) => key.toBase58());
   if (keys[0] !== ownerAddress.toBase58() || !keys.includes(pair.pool) || !keys.includes(PROGRAM_ID)) {
     throw new Error('Built transaction does not target the expected owner and pool');
   }
@@ -119,25 +128,30 @@ async function main() {
     fee_on: Number(rpcData.feeOn),
     trade_fee_rate: rpcData.configInfo.tradeFeeRate.toString(),
     creator_fee_rate: rpcData.configInfo.creatorFeeRate.toString(),
-    serialized_bytes: built.transaction.serialize().length,
-    recent_blockhash: built.transaction.message.recentBlockhash,
-    required_signatures: built.transaction.message.header.numRequiredSignatures,
-    present_signatures: built.transaction.signatures.filter((signature) => {
-      const base58 = Buffer.from(signature).toString('hex');
-      return base58 !== '0'.repeat(128);
-    }).length,
+    transaction_version: txVersion,
+    serialized_bytes: built.transaction instanceof VersionedTransaction
+      ? built.transaction.serialize().length
+      : built.transaction.serialize({ requireAllSignatures: false, verifySignatures: false }).length,
+    recent_blockhash: built.transaction instanceof VersionedTransaction
+      ? built.transaction.message.recentBlockhash : built.transaction.recentBlockhash,
+    required_signatures: built.transaction instanceof VersionedTransaction
+      ? built.transaction.message.header.numRequiredSignatures : built.transaction.compileMessage().header.numRequiredSignatures,
+    present_signatures: built.transaction instanceof VersionedTransaction
+      ? built.transaction.signatures.filter((signature) => Buffer.from(signature).toString('hex') !== '0'.repeat(128)).length
+      : built.transaction.signatures.filter((entry) => entry.signature !== null).length,
   };
   if (!submit) {
     if (args.has('--simulate')) {
-      const simulation = await connection.simulateTransaction(built.transaction, {
-        sigVerify: false,
-        commitment: 'confirmed',
-      });
+      const simulation = built.transaction instanceof VersionedTransaction
+        ? await connection.simulateTransaction(built.transaction, { sigVerify: false, commitment: 'confirmed' })
+        : await connection.simulateTransaction(built.transaction);
       metadata.simulation = {
         err: simulation.value.err,
         logs: simulation.value.logs,
         units_consumed: simulation.value.unitsConsumed,
       };
+      metadata.blockhash_after_simulation = built.transaction instanceof VersionedTransaction
+        ? built.transaction.message.recentBlockhash : built.transaction.recentBlockhash;
     }
     console.log(JSON.stringify(metadata, null, 2));
     return;
