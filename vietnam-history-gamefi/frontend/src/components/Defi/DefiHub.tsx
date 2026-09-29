@@ -61,7 +61,7 @@ export const DefiHub: React.FC<DefiHubProps> = ({ player, onBack, onPlayDrum, in
   };
 
   return (
-    <div className={`app-screen mx-auto w-full max-w-[1480px] px-4 py-8 sm:px-6 lg:px-8 lg:py-12 ${module === 'dex' ? 'raydium-shell' : ''}`}>
+    <div className={`app-screen mx-auto w-full max-w-[1480px] px-4 py-8 sm:px-6 lg:px-8 lg:py-12 ${module === 'dex' ? 'dex-shell' : ''}`}>
       <div className="dex-screen-hero flex flex-col gap-5 border border-imperial-border p-5 pb-7 sm:flex-row sm:items-end sm:justify-between sm:p-7">
         <div>
           <button
@@ -69,25 +69,27 @@ export const DefiHub: React.FC<DefiHubProps> = ({ player, onBack, onPlayDrum, in
             className="inline-flex items-center space-x-1.5 text-xs text-slate-400 hover:text-imperial-lightgold mb-3"
           >
             <ChevronLeft className="w-4 h-4" />
-            <span>Về tổng hành dinh</span>
+            <span>{module === 'dex' ? 'Tổng hành dinh' : 'Về tổng hành dinh'}</span>
           </button>
-          <div className="mb-3 inline-flex items-center space-x-2 border border-imperial-gold/40 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-imperial-gold">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Hào Khí Đại Việt · Khu Giao Thương</span>
-          </div>
+          {module !== 'dex' && (
+            <div className="mb-3 inline-flex items-center space-x-2 border border-imperial-gold/40 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-imperial-gold">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Hào Khí Đại Việt · Khu Giao Thương</span>
+            </div>
+          )}
           <h2 className="font-display text-3xl font-black text-imperial-lightgold sm:text-4xl">
-            {module === 'dex' ? 'DEX SOL Devnet' : 'Kinh Tế On-Chain'}
+            {module === 'dex' ? 'DEX' : 'Kinh Tế On-Chain'}
           </h2>
           <p className="mt-3 max-w-[65ch] text-sm leading-relaxed text-slate-300">
             {module === 'dex'
-              ? 'Đổi SOL với USDC hoặc USDT thử bằng ví Solana. Xem tỷ giá, phí và số nhận tối thiểu trước khi ký.'
+              ? 'Swap token trên Solana Devnet. Xem tỷ giá, phí và số nhận tối thiểu trước khi ký.'
               : 'Các tiện ích kinh tế trong game. Các module ngoài DEX hiện là bản minh họa và chưa gửi giao dịch.'}
           </p>
         </div>
         <div className="min-w-0 border-t border-imperial-gold/50 pt-3 text-xs sm:min-w-[220px] sm:border-t-0 sm:border-l sm:pl-5 sm:pt-0">
-          <div className="text-slate-400 uppercase tracking-wider text-[10px] mb-1">Ví đang dùng</div>
+          <div className="text-slate-400 uppercase tracking-wider text-[10px] mb-1">{module === 'dex' ? 'Devnet · ví giao dịch' : 'Ví đang dùng'}</div>
           <div className="font-mono text-imperial-lightgold">{player.is_guest ? 'Chưa kết nối ví' : shortWallet}</div>
-          <div className="text-slate-400 mt-1 uppercase">{player.chain} • khóa người chơi ở trong ví</div>
+          {module !== 'dex' && <div className="text-slate-400 mt-1 uppercase">{player.chain} • khóa người chơi ở trong ví</div>}
         </div>
       </div>
 

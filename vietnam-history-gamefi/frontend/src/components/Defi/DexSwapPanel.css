@@ -1,361 +1,512 @@
-/* Swap layout adapted from Raydium UI v3's panel and market composition.
-   See frontend/licenses/raydium-ui-v3.LICENSE for the upstream license. */
-.raydium-shell {
-  color: #ecf5ff;
-  background: radial-gradient(circle at 73% 18%, #29306055, transparent 36%), #0b1022;
-}
-
-.raydium-shell .dex-screen-hero {
-  border-color: #abc4ff26;
-  border-radius: 20px;
-  background: linear-gradient(110deg, #151b35f2 4%, #141d37e8 55%, #212042ee 100%);
-  box-shadow: 0 18px 48px #05071345;
-}
-
-.raydium-shell .dex-module-nav button {
-  border-color: #abc4ff24;
-  border-radius: 12px;
-  background: #1c243e;
-  color: #b8c8e9;
-}
-
-.raydium-shell .dex-module-nav button[aria-current="page"] {
-  border-color: #a259ff99;
-  background: #323054;
-  color: #f8f5ff;
-  box-shadow: inset 0 -2px #a259ff;
-}
-
-.raydium-dex {
-  display: grid;
-  grid-template-areas: "bar" "swap" "side" "history";
-  gap: 16px;
+/* DEX shell */
+.app-screen.dex-shell {
+  --dex-bg: #090b0f;
+  --dex-card: #11151c;
+  --dex-field: #0c1016;
+  --dex-gold: #d5ad4a;
+  --dex-gold-light: #f3d88c;
+  --dex-crimson: #7d241c;
+  --dex-crimson-hover: #a83226;
+  --dex-positive: #42d6a4;
+  --dex-text: #f1f4f8;
+  --dex-muted: #a6b0bf;
+  --dex-border: rgba(213, 173, 74, .2);
+  max-width: 1320px;
   min-width: 0;
-  color: #ecf5ff;
+  color: var(--dex-text);
+  padding-top: clamp(20px, 3vw, 36px);
+  padding-bottom: 64px;
 }
 
-.raydium-tradebar,
-.raydium-swap-card,
-.raydium-market-card,
-.raydium-asset-card,
-.raydium-reward-card,
-.raydium-history {
-  border: 1px solid #abc4ff24;
-  border-radius: 20px;
-  background: #1c243e;
-  box-shadow: 0 18px 42px #05071335;
-}
-
-.raydium-tradebar {
-  grid-area: bar;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 13px 18px;
-  background: #141b33;
-}
-
-.raydium-tradebar-title,
-.raydium-tradebar-status,
-.raydium-pair-heading {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.raydium-tradebar-title strong,
-.raydium-tradebar-title span:last-child {
-  display: block;
-}
-
-.raydium-tradebar-title strong {
-  font-size: 1rem;
-  line-height: 1.15;
-}
-
-.raydium-tradebar-title span:last-child,
-.raydium-tradebar-status {
-  color: #a5b4d3;
-  font-size: 0.75rem;
-}
-
-.raydium-tradebar-icon {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  background: #a259ff28;
-  color: #c5a2ff;
-}
-
-.raydium-live-dot {
-  display: inline-block;
-  flex: none;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #4bd9af;
-  box-shadow: 0 0 0 4px #4bd9af22;
-}
-
-.raydium-swap-card {
-  grid-area: swap;
-  align-self: start;
-  padding: 24px;
-}
-
-.raydium-swap-card > div:first-child {
-  border-color: #abc4ff20;
-}
-
-.raydium-swap-card h3,
-.raydium-history h3,
-.raydium-reward-card h3 {
-  color: #ecf5ff;
-  font-family: inherit;
-}
-
-.raydium-swap-card [class*="text-imperial-gold"],
-.raydium-side [class*="text-imperial-gold"] {
-  color: #abc4ff;
-}
-
-.raydium-token-box {
-  border-color: #abc4ff1f;
-  border-radius: 16px;
-  background: #0b1022;
-}
-
-.raydium-token-box:focus-within {
-  border-color: #a259ffb3;
-  box-shadow: 0 0 0 3px #a259ff23;
-}
-
-.raydium-token-box select,
-.raydium-swap-card #dex-slippage {
-  border: 1px solid #abc4ff26;
-  border-radius: 12px;
-  background: #283352;
-  color: #ecf5ff;
-}
-
-.raydium-pair-switch {
-  position: relative;
-  z-index: 1;
-  margin-block: -13px;
-  border-color: #a259ff77;
-  background: #292750;
-  color: #d9c2ff;
-  box-shadow: 0 0 0 6px #1c243e;
-}
-
-.raydium-pair-switch:hover {
-  background: #493479;
-}
-
-.raydium-quote-panel {
-  border-color: #abc4ff35;
-  background: #121b34;
-}
-
-.raydium-primary-action,
-.raydium-primary-action:hover {
-  min-height: 54px;
+.dex-shell .dex-screen-hero {
+  align-items: end;
+  min-height: 0;
+  padding: 0 0 20px;
   border: 0;
-  border-radius: 14px;
-  background: linear-gradient(105deg, #7558e9, #9a53e8 56%, #bd60b5);
-  color: #fff;
-  box-shadow: 0 10px 22px #7347bb35;
-}
-
-.raydium-primary-action:disabled,
-.raydium-primary-action:disabled:hover {
-  background: #2b3651;
-  color: #aab8d5;
+  border-bottom: 1px solid var(--dex-border);
+  border-radius: 0;
+  background: none;
   box-shadow: none;
 }
+.dex-shell .dex-screen-hero button { color: var(--dex-muted); }
+.dex-shell .dex-screen-hero button:hover { color: var(--dex-gold-light); }
+.dex-shell .dex-screen-hero h2 {
+  color: var(--dex-gold-light);
+  font-size: clamp(1.65rem, 3vw, 2.25rem);
+  line-height: 1.2;
+}
+.dex-shell .dex-screen-hero p {
+  margin-top: 6px;
+  color: #bec8d2;
+  font-size: .87rem;
+}
+.dex-shell .dex-screen-hero > div:last-child {
+  border-color: var(--dex-border);
+  color: var(--dex-gold-light);
+}
+.dex-shell .dex-screen-hero > div:last-child > div:first-child {
+  color: var(--dex-muted);
+}
 
-.raydium-side {
-  grid-area: side;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+/* Module navigation */
+.dex-shell .dex-module-nav {
+  gap: 4px;
+  margin-top: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 3px;
+}
+.dex-shell .dex-module-nav button {
+  min-height: 44px;
+  padding: 7px 11px;
+  border-color: transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dex-muted);
+  font-size: .72rem;
+}
+.dex-shell .dex-module-nav button svg { width: 16px; height: 16px; }
+.dex-shell .dex-module-nav button:hover {
+  border-color: var(--dex-border);
+  color: var(--dex-gold-light);
+}
+.dex-shell .dex-module-nav button[aria-current="page"] {
+  border-color: var(--dex-border);
+  background: rgba(213, 173, 74, .1);
+  color: var(--dex-gold-light);
+}
+
+/* Layout */
+.dex-trading { display: grid; gap: 18px; min-width: 0; }
+.dex-trading-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
   min-width: 0;
 }
-
-.raydium-side > * {
-  margin: 0 !important;
-  padding: 22px;
+.dex-swap-card,
+.dex-market-card,
+.dex-history-card,
+.dex-reward-section {
+  min-width: 0;
+  border: 1px solid var(--dex-border);
+  border-radius: 10px;
+  background: var(--dex-card);
+  box-shadow: 0 18px 35px rgba(0, 0, 0, .18);
 }
-
-.raydium-market-card {
-  min-height: 305px;
-  background: radial-gradient(circle at 78% 22%, #a259ff20, transparent 44%), #1c243e;
+.dex-swap-card {
+  border-color: rgba(213, 173, 74, .38);
+  padding: clamp(18px, 2.5vw, 28px);
 }
-
-.raydium-market-head,
-.raydium-market-stats > div,
-.raydium-rate-box {
+.dex-market-card { padding: clamp(18px, 2.3vw, 25px); }
+.dex-card-heading,
+.dex-history-heading {
   display: flex;
+  align-items: start;
   justify-content: space-between;
-  gap: 14px;
+  gap: 12px;
 }
-
-.raydium-market-head {
-  align-items: center;
-  color: #8fa5cd;
-  font-size: 0.7rem;
+.dex-card-heading {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--dex-border);
+}
+.dex-eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--dex-gold);
+  font-size: .65rem;
+  font-weight: 750;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+.dex-card-heading h3,
+.dex-history-heading h3,
+.dex-reward-heading h3 {
+  margin: 0;
+  color: var(--dex-text);
+  font-size: clamp(1.18rem, 2vw, 1.42rem);
   font-weight: 700;
-  letter-spacing: 0.12em;
+  line-height: 1.25;
 }
-
-.raydium-live-pill {
+.dex-provider-badge,
+.dex-pool-state {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border: 1px solid #4bd9af37;
+  gap: 7px;
+  flex: none;
+  max-width: 100%;
+  padding: 6px 9px;
+  border: 1px solid var(--dex-border);
   border-radius: 999px;
-  background: #4bd9af12;
-  color: #7ce8c9;
-  letter-spacing: 0;
+  color: var(--dex-gold-light);
+  font-size: .69rem;
+  line-height: 1.3;
   white-space: nowrap;
 }
 
-.raydium-live-pill.is-idle {
-  border-color: #abc4ff26;
-  background: #abc4ff10;
-  color: #a5b4d3;
+/* Swap form */
+.dex-swap-body { padding-top: 18px; }
+.dex-token-box {
+  min-width: 0;
+  padding: clamp(14px, 2vw, 20px);
+  border: 1px solid rgba(151, 170, 187, .23);
+  border-radius: 9px;
+  background: var(--dex-field);
+  transition: border-color .18s ease, box-shadow .18s ease;
 }
-
-.raydium-live-pill.is-idle .raydium-live-dot {
-  background: #91a2c1;
-  box-shadow: 0 0 0 4px #91a2c11d;
+.dex-token-box:focus-within {
+  border-color: var(--dex-gold);
+  box-shadow: 0 0 0 3px rgba(213, 173, 74, .11);
 }
-
-.raydium-pair-heading {
-  margin-top: 25px;
-}
-
-.raydium-pair-heading h3 {
-  color: #ecf5ff;
-  font-family: inherit;
-  font-size: clamp(1.3rem, 2vw, 1.8rem);
-  font-weight: 750;
-  line-height: 1.15;
-}
-
-.raydium-pair-heading p {
-  margin-top: 4px;
-  color: #9fb0cf;
-  font-size: 0.75rem;
-}
-
-.raydium-pair-logos {
+.dex-token-meta {
   display: flex;
-  padding-left: 2px;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--dex-muted);
+  font-size: .77rem;
+  line-height: 1.4;
 }
-
-.raydium-pair-logos img {
-  width: 40px;
-  height: 40px;
-  border: 3px solid #1c243e;
-  border-radius: 50%;
-  background: #0b1022;
+.dex-token-meta label,
+.dex-token-meta > span:first-child {
+  color: #d9e0e8;
+  font-weight: 650;
 }
-
-.raydium-pair-logos img + img {
-  margin-left: -11px;
-}
-
-.raydium-rate-box {
-  flex-direction: column;
-  gap: 5px;
-  margin-top: 25px;
-  padding: 15px 16px;
-  border: 1px solid #abc4ff1e;
-  border-radius: 14px;
-  background: #0b102295;
-}
-
-.raydium-rate-box span,
-.raydium-rate-box small,
-.raydium-market-stats span {
-  color: #98a9c9;
-  font-size: 0.75rem;
-}
-
-.raydium-rate-box strong {
+.dex-token-meta > span:last-child { text-align: right; overflow-wrap: anywhere; }
+.dex-amount-input,
+.dex-output-amount {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin-top: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dex-text);
+  font-size: clamp(1.65rem, 3.5vw, 2.35rem);
+  font-weight: 700;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
-  color: #ecf5ff;
-  font-size: clamp(0.95rem, 1.7vw, 1.25rem);
+}
+.dex-amount-input::placeholder { color: #657080; opacity: 1; }
+.dex-amount-input:focus { outline: none; }
+.dex-output-amount.is-placeholder {
+  color: #818d9e;
+  font-size: clamp(1.13rem, 2.4vw, 1.45rem);
+  line-height: 1.8;
+}
+.dex-token-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+.dex-token-actions-output { justify-content: flex-end; }
+.dex-max-button {
+  min-height: 44px;
+  min-width: 58px;
+  padding: 6px 10px;
+  border: 1px solid var(--dex-border);
+  border-radius: 6px;
+  background: rgba(213, 173, 74, .08);
+  color: var(--dex-gold-light);
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+}
+.dex-max-button:hover:not(:disabled) { background: rgba(213, 173, 74, .16); }
+.dex-max-button:disabled { cursor: not-allowed; opacity: .45; }
+.dex-token-picker,
+.dex-token-fixed {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  min-height: 44px;
+  padding: 5px 8px;
+  border: 1px solid rgba(213, 173, 74, .35);
+  border-radius: 7px;
+  background: #1d1b1a;
+  color: var(--dex-text);
+  font-size: .84rem;
   font-weight: 750;
 }
-
-.raydium-market-stats {
-  display: grid;
-  gap: 12px;
-  margin-top: 18px;
+.dex-token-picker img,
+.dex-token-fixed img { width: 26px; height: 26px; flex: none; border-radius: 50%; }
+.dex-token-picker select {
+  min-height: 30px;
+  padding-right: 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
 }
-
-.raydium-market-stats strong {
-  color: #ecf5ff;
-  font-size: 0.77rem;
+.dex-token-picker select option,
+.dex-slippage-row select option { background: #151a22; color: var(--dex-text); }
+.dex-token-picker select:focus-visible,
+.dex-slippage-row select:focus-visible { outline: 2px solid var(--dex-gold-light); outline-offset: 2px; }
+.dex-pair-switch-row { display: flex; justify-content: center; height: 24px; }
+.dex-pair-switch {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-top: -9px;
+  border: 1px solid var(--dex-gold);
+  border-radius: 50%;
+  background: #24201c;
+  color: var(--dex-gold-light);
+  box-shadow: 0 0 0 5px var(--dex-card);
+  transition: background .18s ease, transform .18s ease;
+}
+.dex-pair-switch:hover { background: var(--dex-crimson); transform: rotate(180deg); }
+.dex-slippage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 17px 1px;
+  color: var(--dex-muted);
+  font-size: .8rem;
+}
+.dex-slippage-row select {
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid var(--dex-border);
+  border-radius: 6px;
+  background: #1c2027;
+  color: var(--dex-text);
+}
+.dex-quote-details { display: grid; gap: 8px; padding: 15px 0; border-top: 1px solid var(--dex-border); }
+.dex-quote-details > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  font-size: .77rem;
+}
+.dex-quote-details dt { color: var(--dex-muted); flex: none; }
+.dex-quote-details dd {
+  min-width: 0;
+  margin: 0;
+  color: #e4eaf0;
   font-weight: 650;
   text-align: right;
+  overflow-wrap: anywhere;
+}
+.dex-quote-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 5px 10px;
+  margin: 4px 0 13px;
+  padding: 10px 12px;
+  border: 1px solid rgba(66, 214, 164, .28);
+  border-radius: 6px;
+  background: rgba(66, 214, 164, .06);
+  color: #a1edce;
+  font-size: .75rem;
+}
+.dex-quote-status.is-simulation {
+  border-color: rgba(213, 173, 74, .34);
+  background: rgba(213, 173, 74, .08);
+  color: var(--dex-gold-light);
+}
+.dex-quote-status small { color: var(--dex-muted); overflow-wrap: anywhere; }
+.dex-quote-status p { width: 100%; color: var(--dex-gold-light); }
+.dex-message,
+.dex-operation-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+  color: var(--dex-muted);
+  font-size: .78rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.dex-message.is-warning { color: #f2c777; }
+.dex-message.is-error { color: #ff9d97; }
+.dex-message.is-success { color: var(--dex-positive); }
+.dex-message.is-success a { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; text-decoration: underline; }
+.dex-operation-status { color: var(--dex-gold-light); }
+.dex-primary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 52px;
+  padding: 11px 18px;
+  border: 1px solid #b44e3e;
+  border-radius: 7px;
+  background: var(--dex-crimson);
+  color: #fff3e0;
+  font-size: .9rem;
+  font-weight: 800;
+  transition: background .18s ease, border-color .18s ease;
+}
+.dex-primary-action:hover:not(:disabled) { background: var(--dex-crimson-hover); border-color: #d46a50; }
+.dex-primary-action:disabled {
+  cursor: not-allowed;
+  border-color: #3b424d;
+  background: #2a3039;
+  color: #aab4c1;
+}
+.dex-action-row { display: grid; grid-template-columns: minmax(0, 1fr) 52px; gap: 8px; }
+.dex-refresh-quote {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  border: 1px solid var(--dex-border);
+  border-radius: 7px;
+  color: var(--dex-gold-light);
+}
+.dex-refresh-quote:hover:not(:disabled) { background: rgba(213, 173, 74, .1); }
+.dex-refresh-quote:disabled { cursor: not-allowed; opacity: .45; }
+.dex-spin { animation: dex-spin .9s linear infinite; }
+@keyframes dex-spin { to { transform: rotate(360deg); } }
+
+/* Market */
+.dex-pool-state { color: var(--dex-muted); border-color: rgba(151, 170, 187, .23); }
+.dex-pool-state.is-ready { color: var(--dex-positive); border-color: rgba(66, 214, 164, .28); }
+.dex-state-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: currentColor; }
+.dex-market-pair { display: flex; align-items: center; gap: 16px; margin-top: 22px; }
+.dex-pair-logos { display: flex; flex: none; padding-left: 1px; }
+.dex-pair-logos img {
+  width: 42px;
+  height: 42px;
+  border: 2px solid var(--dex-card);
+  border-radius: 50%;
+  background: var(--dex-field);
+}
+.dex-pair-logos img + img { margin-left: -12px; }
+.dex-market-pair strong,
+.dex-market-pair span { display: block; }
+.dex-market-pair strong { color: var(--dex-text); font-size: 1.22rem; line-height: 1.2; }
+.dex-market-pair span { margin-top: 3px; color: var(--dex-muted); font-size: .76rem; }
+.dex-market-rate {
+  display: grid;
+  gap: 6px;
+  margin-top: 22px;
+  padding: 16px;
+  border: 1px solid rgba(151, 170, 187, .17);
+  border-radius: 7px;
+  background: var(--dex-field);
+}
+.dex-market-rate span,
+.dex-market-rate small { color: var(--dex-muted); font-size: .75rem; line-height: 1.4; }
+.dex-market-rate strong { color: var(--dex-gold-light); font-size: clamp(1rem, 2vw, 1.22rem); line-height: 1.35; overflow-wrap: anywhere; }
+.dex-market-facts { display: grid; gap: 0; margin-top: 16px; }
+.dex-market-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(151, 170, 187, .13);
+  font-size: .77rem;
+}
+.dex-market-facts dt { color: var(--dex-muted); }
+.dex-market-facts dd { margin: 0; color: var(--dex-text); font-weight: 650; text-align: right; }
+.dex-market-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  margin-top: 12px;
+  color: var(--dex-gold-light);
+  font-size: .78rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.dex-wallet-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--dex-border);
+}
+.dex-wallet-strip span,
+.dex-wallet-strip strong { display: block; }
+.dex-wallet-strip span { color: var(--dex-muted); font-size: .72rem; }
+.dex-wallet-strip strong { margin-top: 2px; color: #e5ebf0; font-family: ui-monospace, monospace; font-size: .8rem; }
+.dex-wallet-strip button { display: grid; place-items: center; width: 44px; height: 44px; flex: none; color: var(--dex-gold-light); }
+.dex-wallet-strip button:disabled { cursor: not-allowed; opacity: .45; }
+.dex-market-note { margin-top: 13px; color: var(--dex-muted); font-size: .73rem; line-height: 1.55; }
+
+/* History and rewards */
+.dex-history-card { padding: clamp(18px, 2.3vw, 25px); }
+.dex-history-heading { align-items: center; padding-bottom: 16px; border-bottom: 1px solid var(--dex-border); }
+.dex-history-heading h3 { display: flex; align-items: center; gap: 9px; }
+.dex-history-heading h3 svg { color: var(--dex-gold); flex: none; }
+.dex-history-heading > span { color: var(--dex-muted); font-size: .73rem; text-align: right; }
+.dex-history-empty { padding: 19px 0 2px; color: var(--dex-muted); font-size: .79rem; line-height: 1.5; }
+.dex-history-empty.is-error { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; color: #f2c777; }
+.dex-history-empty button { min-height: 39px; color: var(--dex-gold-light); text-decoration: underline; }
+.dex-history-list { margin: 0; padding: 0; list-style: none; }
+.dex-history-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) minmax(105px, .7fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 13px 0;
+  border-bottom: 1px solid rgba(151, 170, 187, .13);
+  font-size: .78rem;
+}
+.dex-history-list li:last-child { border-bottom: 0; padding-bottom: 0; }
+.dex-history-pair { color: var(--dex-text); font-weight: 700; overflow-wrap: anywhere; }
+.dex-history-list time { color: var(--dex-muted); }
+.dex-history-status { color: var(--dex-muted); }
+.dex-history-status.is-confirmed { color: var(--dex-positive); }
+.dex-history-status.is-pending_confirmation { color: #f2c777; }
+.dex-history-status.is-failed,
+.dex-history-status.is-expired { color: #ff9d97; }
+.dex-history-link { display: inline-flex; align-items: center; gap: 4px; min-height: 35px; color: var(--dex-gold-light); text-decoration: underline; }
+.dex-reward-section { padding: 18px clamp(18px, 2.3vw, 25px); }
+.dex-reward-heading { display: flex; align-items: start; gap: 10px; color: var(--dex-gold); }
+.dex-reward-heading h3 { font-size: 1.05rem; }
+.dex-reward-heading p { margin-top: 3px; color: var(--dex-muted); font-size: .74rem; }
+.dex-reward-section > div:last-child {
+  margin-top: 12px;
+  border-color: var(--dex-border);
+  background: var(--dex-field);
 }
 
-.raydium-pool-link {
-  margin-top: 13px;
-  color: #abc4ff;
+/* Responsive */
+@media (max-width: 900px) {
+  .dex-trading-grid { grid-template-columns: minmax(0, 1fr); }
+  .dex-market-card { order: 2; }
 }
-
-.raydium-asset-card dl {
-  border-top: 1px solid #abc4ff1d;
+@media (max-width: 640px) {
+  .dex-shell .dex-screen-hero { gap: 12px; }
+  .dex-shell .dex-screen-hero > div:last-child { width: 100%; padding-top: 12px; }
+  .dex-card-heading { flex-wrap: wrap; }
+  .dex-history-list li { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
+  .dex-history-list time { grid-column: 1; grid-row: 2; }
+  .dex-history-status { grid-column: 2; grid-row: 1; text-align: right; }
+  .dex-history-link { grid-column: 2; grid-row: 2; }
 }
-
-.raydium-asset-card dl > div {
-  border-color: #abc4ff18;
+@media (max-width: 380px) {
+  .dex-swap-card,
+  .dex-market-card,
+  .dex-history-card { padding: 16px; }
+  .dex-token-box { padding: 13px; }
+  .dex-token-meta { font-size: .7rem; }
+  .dex-history-heading { align-items: start; }
+  .dex-history-heading > span { max-width: 75px; }
 }
-
-.raydium-asset-card dd {
-  color: #ecf5ff;
-}
-
-.raydium-history {
-  grid-area: history;
-  align-self: start;
-  padding: 22px;
-}
-
-.raydium-history > section {
-  border-color: #abc4ff22;
-}
-
-@media (min-width: 1024px) {
-  .raydium-dex {
-    grid-template-columns: minmax(360px, 470px) minmax(0, 1fr);
-    grid-template-areas: "bar bar" "swap side" "history side";
-    align-items: start;
-    gap: 18px;
-  }
-}
-
-@media (max-width: 540px) {
-  .raydium-tradebar,
-  .raydium-swap-card,
-  .raydium-side > *,
-  .raydium-history {
-    padding: 17px;
-    border-radius: 16px;
-  }
-  .raydium-tradebar-status {
-    padding-left: 48px;
-  }
-  .raydium-pair-heading {
-    margin-top: 19px;
-  }
+@media (prefers-reduced-motion: reduce) {
+  .dex-pair-switch,
+  .dex-primary-action,
+  .dex-token-box { transition: none; }
+  .dex-pair-switch:hover { transform: none; }
+  .dex-spin { animation: none; }
 }
