@@ -61,7 +61,7 @@ export const DefiHub: React.FC<DefiHubProps> = ({ player, onBack, onPlayDrum, in
   };
 
   return (
-    <div className="app-screen mx-auto w-full max-w-[1480px] px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+    <div className={`app-screen mx-auto w-full max-w-[1480px] px-4 py-8 sm:px-6 lg:px-8 lg:py-12 ${module === 'dex' ? 'raydium-shell' : ''}`}>
       <div className="dex-screen-hero flex flex-col gap-5 border border-imperial-border p-5 pb-7 sm:flex-row sm:items-end sm:justify-between sm:p-7">
         <div>
           <button

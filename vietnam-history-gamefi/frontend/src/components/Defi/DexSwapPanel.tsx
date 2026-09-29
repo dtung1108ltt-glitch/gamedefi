@@ -26,6 +26,7 @@ import { formatBaseUnits, uiAmountToBaseUnits } from '../../services/dexMath';
 import { buildRaydiumSwapTransaction } from '../../services/raydiumSwap';
 import type { DexConfig, DexExecution, DexOrder, DexSwapHistory, QuickSwapIntent } from '../../types/dex';
 import { SolRewardCard } from './SolRewardCard';
+import './DexSwapPanel.css';
 
 interface DexSwapPanelProps {
   player: Player;
@@ -231,11 +232,49 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
     : null;
   const busy = requestStatus !== 'idle';
   const canRequestQuote = balanceStatus === 'ready' && Boolean(amount) && !amountError && !busy;
+  const marketRate = order && Number(order.in_amount) > 0
+    ? (Number(order.out_amount) / 10 ** order.output_decimals) /
+      (Number(order.in_amount) / 10 ** order.input_decimals)
+    : null;
 
   return (
-    <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)_minmax(0,0.9fr)] xl:gap-8">
-      <aside className="order-2 min-w-0 space-y-6 lg:order-1" aria-label="Tài sản và phần thưởng">
-        <div className="border-t border-imperial-gold/50 pt-4">
+    <div className="raydium-dex">
+      <div className="raydium-tradebar">
+        <div className="raydium-tradebar-title">
+          <span className="raydium-tradebar-icon"><ArrowDownUp aria-hidden="true" className="h-5 w-5" /></span>
+          <div><strong>Swap</strong><span>Giao dịch token trên Solana {networkLabel}</span></div>
+        </div>
+        <div className="raydium-tradebar-status"><span className="raydium-live-dot" />{SOLANA_NETWORK === 'devnet' ? 'Raydium CPMM · Devnet' : 'Jupiter · Mainnet'}</div>
+      </div>
+      <aside className="raydium-side min-w-0 space-y-6" aria-label="Thị trường, tài sản và phần thưởng">
+        <div className="raydium-market-card border-t border-imperial-border pt-5">
+          <div className="raydium-market-head"><span>THỊ TRƯỜNG / {networkLabel.toUpperCase()}</span><span className={`raydium-live-pill ${dexConfig ? '' : 'is-idle'}`}><span className="raydium-live-dot" />{order ? 'Báo giá từ pool' : dexConfig ? 'Pool đã xác minh' : player.is_guest ? 'Cần kết nối ví' : 'Đang đọc pool'}</span></div>
+          <div className="raydium-pair-heading">
+            <div className="raydium-pair-logos"><img src={tokenLogo(fromToken)!} alt="" /><img src={tokenLogo(toToken)!} alt="" /></div>
+            <div><h3>{fromToken} / {toToken}</h3><p>{SOLANA_NETWORK === 'devnet' ? 'Raydium CPMM · Solana Devnet' : 'Jupiter · Solana Mainnet'}</p></div>
+          </div>
+          <div className="raydium-rate-box">
+            <span>Tỷ giá báo giá hiện tại</span>
+            <strong>{marketRate !== null && Number.isFinite(marketRate) ? `1 ${fromToken} ≈ ${marketRate.toLocaleString('vi-VN', { maximumFractionDigits: 6 })} ${toToken}` : 'Nhập số lượng để lấy báo giá'}</strong>
+            <small>{order ? 'Tỷ giá có thể thay đổi trước khi ký giao dịch.' : 'Tỷ giá được đọc từ pool khi bạn lấy báo giá.'}</small>
+          </div>
+          <div className="raydium-market-stats">
+            <div><span>Phí pool</span><strong>{order ? `${(order.fee_bps / 100).toFixed(2)}%` : '—'}</strong></div>
+            <div><span>Tác động giá</span><strong>{order ? `${(order.price_impact_bps / 100).toFixed(2)}%` : '—'}</strong></div>
+            <div><span>Nhận tối thiểu</span><strong>{order ? `${minimumReceived} ${toToken}` : '—'}</strong></div>
+          </div>
+          {dexConfig?.pools[toToken === 'SOL' ? fromToken : toToken] && (
+            <a
+              href={`https://explorer.solana.com/address/${dexConfig.pools[toToken === 'SOL' ? fromToken : toToken]}?cluster=${SOLANA_NETWORK}`}
+              target="_blank"
+              rel="noreferrer"
+              className="raydium-pool-link mt-3 inline-flex min-h-11 items-center gap-2 text-xs text-imperial-lightgold underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-imperial-gold"
+            >
+              Kiểm tra pool <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          )}
+        </div>
+        <div className="raydium-asset-card border-t border-imperial-gold/50 pt-4">
           <div className="flex items-center justify-between gap-3">
             <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-imperial-gold">Tài sản trong ví</span>
             <button
@@ -266,29 +305,14 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
           </dl>
           <p className="mt-2 text-xs leading-relaxed text-slate-400">Số dư được đọc trực tiếp từ Solana. {networkLabel} chỉ dùng token của mạng này.</p>
         </div>
-        <div className="border-t border-imperial-border pt-5">
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-imperial-gold">Thị trường</p>
-          <h3 className="mt-2 font-display text-lg font-bold text-imperial-lightgold">{SOLANA_NETWORK === 'devnet' ? 'USDC · USDT / SOL' : 'USDC / SOL'}</h3>
-          <p className="mt-1 text-xs text-slate-400">{SOLANA_NETWORK === 'devnet' ? 'Raydium CPMM · Devnet' : SOLANA_NETWORK === 'mainnet-beta' ? 'Jupiter · Mainnet' : 'Mạng thử nghiệm'}</p>
-          {dexConfig?.pools[toToken === 'SOL' ? fromToken : toToken] && (
-            <a
-              href={`https://explorer.solana.com/address/${dexConfig.pools[toToken === 'SOL' ? fromToken : toToken]}?cluster=${SOLANA_NETWORK}`}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 inline-flex min-h-11 items-center gap-2 text-xs text-imperial-lightgold underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-imperial-gold"
-            >
-              Kiểm tra pool <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          )}
-        </div>
-        <div className="border-t border-imperial-border pt-5">
+        <div className="raydium-reward-card border-t border-imperial-border pt-5">
           <div className="flex items-center gap-2 text-imperial-lightgold"><Coins className="h-4 w-4" /><h3 className="font-display text-base font-bold">Phần thưởng SOL</h3></div>
           <p className="mt-2 text-xs leading-relaxed text-slate-400">Phần thưởng từ trận đánh và nhiệm vụ có thể dùng tại Khu Giao Thương sau khi được xác nhận.</p>
           <SolRewardCard player={player} />
         </div>
       </aside>
 
-      <section className="order-1 min-w-0 rounded-2xl border border-imperial-gold/40 bg-imperial-lacquer p-5 shadow-[0_18px_50px_-35px_rgba(0,0,0,0.9)] sm:p-7 lg:order-2" aria-labelledby="dex-swap-title">
+      <section className="raydium-swap-card min-w-0 rounded-2xl border border-imperial-gold/40 bg-imperial-lacquer p-5 shadow-[0_18px_50px_-35px_rgba(0,0,0,0.9)] sm:p-7" aria-labelledby="dex-swap-title">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-imperial-border pb-5">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-imperial-gold">Giao dịch · 01</p>
@@ -298,7 +322,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
         </div>
         <div className="mt-6 space-y-4">
 
-          <div className="rounded-xl border border-imperial-border bg-imperial-obsidian/70 p-4 transition-colors focus-within:border-imperial-gold/70">
+          <div className="raydium-token-box rounded-xl border border-imperial-border bg-imperial-obsidian/70 p-4 transition-colors focus-within:border-imperial-gold/70">
             <div className="mb-2 flex items-center justify-between text-[11px]">
               <span className="text-slate-400">Bạn bán</span>
               <span className="text-slate-500">Số dư: {balanceLabel}</span>
@@ -351,14 +375,14 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
             <button
               type="button"
               onClick={reversePair}
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-imperial-gold/50 bg-imperial-darkred text-imperial-lightgold transition-transform hover:rotate-180 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-imperial-gold motion-reduce:transition-none"
+              className="raydium-pair-switch flex h-11 w-11 items-center justify-center rounded-full border border-imperial-gold/50 bg-imperial-darkred text-imperial-lightgold transition-transform hover:rotate-180 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-imperial-gold motion-reduce:transition-none"
               aria-label="Đảo chiều cặp giao dịch"
             >
               <ArrowDownUp className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="rounded-xl border border-imperial-border bg-imperial-obsidian/50 p-4">
+          <div className="raydium-token-box rounded-xl border border-imperial-border bg-imperial-obsidian/50 p-4">
             <div className="mb-2 flex items-center justify-between text-[11px]">
               <span className="text-slate-400">Bạn nhận</span>
               <span className="text-slate-500">{balances[toToken]} {toToken} trong ví</span>
@@ -389,7 +413,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
           </div>
 
           {order && (
-            <div className={`rounded-xl border p-3 text-[11px] ${order.simulation ? 'border-amber-700/50 bg-amber-950/20' : 'border-emerald-800/50 bg-emerald-950/20'}`}>
+            <div className={`raydium-quote-panel rounded-xl border p-3 text-[11px] ${order.simulation ? 'border-amber-700/50 bg-amber-950/20' : 'border-emerald-800/50 bg-emerald-950/20'}`}>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-1">
                 <span className={order.simulation ? 'font-bold text-amber-300' : 'font-bold text-emerald-300'}>
                   {order.simulation ? 'Báo giá mô phỏng' : order.provider === 'raydium' ? `Raydium SOL/${fromToken === 'SOL' ? toToken : fromToken} Devnet` : 'Jupiter SOL/USDC Mainnet'}
@@ -445,7 +469,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
               type="button"
               onClick={() => void requestOrder(Boolean(order?.simulation))}
               disabled={!canRequestQuote}
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-imperial-gold/60 bg-imperial-crimson py-3 text-sm font-bold text-imperial-lightgold transition-colors hover:bg-imperial-darkred focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-imperial-gold disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-900/70 disabled:text-slate-500"
+              className="raydium-primary-action flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-imperial-gold/60 bg-imperial-crimson py-3 text-sm font-bold text-imperial-lightgold transition-colors hover:bg-imperial-darkred focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-imperial-gold disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-900/70 disabled:text-slate-500"
             >
               {requestStatus === 'quoting' && <LoaderCircle className="h-4 w-4 animate-spin" />}
               {order?.simulation ? 'Lấy lại báo giá mô phỏng' : 'Lấy báo giá'}
@@ -456,7 +480,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
                 type="button"
                 onClick={() => void signAndExecute()}
                 disabled={busy || !order.executable || execution?.status === 'Success'}
-                className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-500/50 bg-emerald-900/60 py-3 text-sm font-bold text-emerald-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                className="raydium-primary-action flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-500/50 bg-emerald-900/60 py-3 text-sm font-bold text-emerald-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {busy && <LoaderCircle className="h-4 w-4 animate-spin" />}
                 {execution?.status === 'Success' ? 'Đã hoàn tất' : requestStatus === 'signing' ? 'Đang chờ ví ký…' : requestStatus === 'executing' ? 'Đang xác nhận…' : 'Ký và đổi'}
@@ -475,7 +499,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
         </div>
       </section>
 
-      <aside className="order-3 min-w-0 space-y-8 border-t border-imperial-border pt-5 lg:border-t-0 lg:pt-0" aria-label="Trạng thái và lịch sử giao dịch">
+      <aside className="raydium-history min-w-0 space-y-8 border-t border-imperial-border pt-5 lg:border-t-0 lg:pt-0" aria-label="Trạng thái và lịch sử giao dịch">
         <section className="border-t border-imperial-gold/50 pt-4">
           <div className="flex items-center gap-2 text-imperial-lightgold"><ScrollText className="h-4 w-4" /><h3 className="font-display text-base font-bold">Sổ giao dịch</h3></div>
           <p className="mt-2 text-xs leading-relaxed text-slate-400">Báo giá từ pool, ví của bạn ký giao dịch và Solana xác nhận kết quả.</p>

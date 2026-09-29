@@ -1,0 +1,361 @@
+/* Swap layout adapted from Raydium UI v3's panel and market composition.
+   See frontend/licenses/raydium-ui-v3.LICENSE for the upstream license. */
+.raydium-shell {
+  color: #ecf5ff;
+  background: radial-gradient(circle at 73% 18%, #29306055, transparent 36%), #0b1022;
+}
+
+.raydium-shell .dex-screen-hero {
+  border-color: #abc4ff26;
+  border-radius: 20px;
+  background: linear-gradient(110deg, #151b35f2 4%, #141d37e8 55%, #212042ee 100%);
+  box-shadow: 0 18px 48px #05071345;
+}
+
+.raydium-shell .dex-module-nav button {
+  border-color: #abc4ff24;
+  border-radius: 12px;
+  background: #1c243e;
+  color: #b8c8e9;
+}
+
+.raydium-shell .dex-module-nav button[aria-current="page"] {
+  border-color: #a259ff99;
+  background: #323054;
+  color: #f8f5ff;
+  box-shadow: inset 0 -2px #a259ff;
+}
+
+.raydium-dex {
+  display: grid;
+  grid-template-areas: "bar" "swap" "side" "history";
+  gap: 16px;
+  min-width: 0;
+  color: #ecf5ff;
+}
+
+.raydium-tradebar,
+.raydium-swap-card,
+.raydium-market-card,
+.raydium-asset-card,
+.raydium-reward-card,
+.raydium-history {
+  border: 1px solid #abc4ff24;
+  border-radius: 20px;
+  background: #1c243e;
+  box-shadow: 0 18px 42px #05071335;
+}
+
+.raydium-tradebar {
+  grid-area: bar;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 13px 18px;
+  background: #141b33;
+}
+
+.raydium-tradebar-title,
+.raydium-tradebar-status,
+.raydium-pair-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.raydium-tradebar-title strong,
+.raydium-tradebar-title span:last-child {
+  display: block;
+}
+
+.raydium-tradebar-title strong {
+  font-size: 1rem;
+  line-height: 1.15;
+}
+
+.raydium-tradebar-title span:last-child,
+.raydium-tradebar-status {
+  color: #a5b4d3;
+  font-size: 0.75rem;
+}
+
+.raydium-tradebar-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: #a259ff28;
+  color: #c5a2ff;
+}
+
+.raydium-live-dot {
+  display: inline-block;
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4bd9af;
+  box-shadow: 0 0 0 4px #4bd9af22;
+}
+
+.raydium-swap-card {
+  grid-area: swap;
+  align-self: start;
+  padding: 24px;
+}
+
+.raydium-swap-card > div:first-child {
+  border-color: #abc4ff20;
+}
+
+.raydium-swap-card h3,
+.raydium-history h3,
+.raydium-reward-card h3 {
+  color: #ecf5ff;
+  font-family: inherit;
+}
+
+.raydium-swap-card [class*="text-imperial-gold"],
+.raydium-side [class*="text-imperial-gold"] {
+  color: #abc4ff;
+}
+
+.raydium-token-box {
+  border-color: #abc4ff1f;
+  border-radius: 16px;
+  background: #0b1022;
+}
+
+.raydium-token-box:focus-within {
+  border-color: #a259ffb3;
+  box-shadow: 0 0 0 3px #a259ff23;
+}
+
+.raydium-token-box select,
+.raydium-swap-card #dex-slippage {
+  border: 1px solid #abc4ff26;
+  border-radius: 12px;
+  background: #283352;
+  color: #ecf5ff;
+}
+
+.raydium-pair-switch {
+  position: relative;
+  z-index: 1;
+  margin-block: -13px;
+  border-color: #a259ff77;
+  background: #292750;
+  color: #d9c2ff;
+  box-shadow: 0 0 0 6px #1c243e;
+}
+
+.raydium-pair-switch:hover {
+  background: #493479;
+}
+
+.raydium-quote-panel {
+  border-color: #abc4ff35;
+  background: #121b34;
+}
+
+.raydium-primary-action,
+.raydium-primary-action:hover {
+  min-height: 54px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(105deg, #7558e9, #9a53e8 56%, #bd60b5);
+  color: #fff;
+  box-shadow: 0 10px 22px #7347bb35;
+}
+
+.raydium-primary-action:disabled,
+.raydium-primary-action:disabled:hover {
+  background: #2b3651;
+  color: #aab8d5;
+  box-shadow: none;
+}
+
+.raydium-side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.raydium-side > * {
+  margin: 0 !important;
+  padding: 22px;
+}
+
+.raydium-market-card {
+  min-height: 305px;
+  background: radial-gradient(circle at 78% 22%, #a259ff20, transparent 44%), #1c243e;
+}
+
+.raydium-market-head,
+.raydium-market-stats > div,
+.raydium-rate-box {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.raydium-market-head {
+  align-items: center;
+  color: #8fa5cd;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.raydium-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid #4bd9af37;
+  border-radius: 999px;
+  background: #4bd9af12;
+  color: #7ce8c9;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.raydium-live-pill.is-idle {
+  border-color: #abc4ff26;
+  background: #abc4ff10;
+  color: #a5b4d3;
+}
+
+.raydium-live-pill.is-idle .raydium-live-dot {
+  background: #91a2c1;
+  box-shadow: 0 0 0 4px #91a2c11d;
+}
+
+.raydium-pair-heading {
+  margin-top: 25px;
+}
+
+.raydium-pair-heading h3 {
+  color: #ecf5ff;
+  font-family: inherit;
+  font-size: clamp(1.3rem, 2vw, 1.8rem);
+  font-weight: 750;
+  line-height: 1.15;
+}
+
+.raydium-pair-heading p {
+  margin-top: 4px;
+  color: #9fb0cf;
+  font-size: 0.75rem;
+}
+
+.raydium-pair-logos {
+  display: flex;
+  padding-left: 2px;
+}
+
+.raydium-pair-logos img {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #1c243e;
+  border-radius: 50%;
+  background: #0b1022;
+}
+
+.raydium-pair-logos img + img {
+  margin-left: -11px;
+}
+
+.raydium-rate-box {
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 25px;
+  padding: 15px 16px;
+  border: 1px solid #abc4ff1e;
+  border-radius: 14px;
+  background: #0b102295;
+}
+
+.raydium-rate-box span,
+.raydium-rate-box small,
+.raydium-market-stats span {
+  color: #98a9c9;
+  font-size: 0.75rem;
+}
+
+.raydium-rate-box strong {
+  overflow-wrap: anywhere;
+  color: #ecf5ff;
+  font-size: clamp(0.95rem, 1.7vw, 1.25rem);
+  font-weight: 750;
+}
+
+.raydium-market-stats {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.raydium-market-stats strong {
+  color: #ecf5ff;
+  font-size: 0.77rem;
+  font-weight: 650;
+  text-align: right;
+}
+
+.raydium-pool-link {
+  margin-top: 13px;
+  color: #abc4ff;
+}
+
+.raydium-asset-card dl {
+  border-top: 1px solid #abc4ff1d;
+}
+
+.raydium-asset-card dl > div {
+  border-color: #abc4ff18;
+}
+
+.raydium-asset-card dd {
+  color: #ecf5ff;
+}
+
+.raydium-history {
+  grid-area: history;
+  align-self: start;
+  padding: 22px;
+}
+
+.raydium-history > section {
+  border-color: #abc4ff22;
+}
+
+@media (min-width: 1024px) {
+  .raydium-dex {
+    grid-template-columns: minmax(360px, 470px) minmax(0, 1fr);
+    grid-template-areas: "bar bar" "swap side" "history side";
+    align-items: start;
+    gap: 18px;
+  }
+}
+
+@media (max-width: 540px) {
+  .raydium-tradebar,
+  .raydium-swap-card,
+  .raydium-side > *,
+  .raydium-history {
+    padding: 17px;
+    border-radius: 16px;
+  }
+  .raydium-tradebar-status {
+    padding-left: 48px;
+  }
+  .raydium-pair-heading {
+    margin-top: 19px;
+  }
+}
