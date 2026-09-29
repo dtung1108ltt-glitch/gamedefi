@@ -1,6 +1,7 @@
 import { Connection, PublicKey, VersionedTransaction } from '@solana/web3.js';
 import { Buffer } from 'buffer';
 import BN from 'bn.js';
+import { CurveCalculator, DEV_API_URLS, FeeOn, Raydium, TxVersion } from '@raydium-io/raydium-sdk-v2';
 import type { DexOrder } from '../types/dex';
 import { SOLANA_NETWORK, SOLANA_RPC_URL } from './solana';
 
@@ -32,8 +33,6 @@ export async function buildRaydiumSwapTransaction(
     throw new Error('Báo giá không khớp cặp SOL/USDC hoặc SOL/USDT thử.');
   }
 
-  const { CurveCalculator, DEV_API_URLS, FeeOn, Raydium, TxVersion } =
-    await import('@raydium-io/raydium-sdk-v2');
   const owner = new PublicKey(expectedWallet);
   const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
   if (await connection.getGenesisHash() !== DEVNET_GENESIS) {

@@ -86,11 +86,13 @@ export const DefiHub: React.FC<DefiHubProps> = ({ player, onBack, onPlayDrum, in
               : 'Các tiện ích kinh tế trong game. Các module ngoài DEX hiện là bản minh họa và chưa gửi giao dịch.'}
           </p>
         </div>
-        <div className="min-w-0 border-t border-imperial-gold/50 pt-3 text-xs sm:min-w-[220px] sm:border-t-0 sm:border-l sm:pl-5 sm:pt-0">
-          <div className="text-slate-400 uppercase tracking-wider text-[10px] mb-1">{module === 'dex' ? 'Devnet · ví giao dịch' : 'Ví đang dùng'}</div>
-          <div className="font-mono text-imperial-lightgold">{player.is_guest ? 'Chưa kết nối ví' : shortWallet}</div>
-          {module !== 'dex' && <div className="text-slate-400 mt-1 uppercase">{player.chain} • khóa người chơi ở trong ví</div>}
-        </div>
+        {module !== 'dex' && (
+          <div className="min-w-0 border-t border-imperial-gold/50 pt-3 text-xs sm:min-w-[220px] sm:border-t-0 sm:border-l sm:pl-5 sm:pt-0">
+            <div className="text-slate-400 uppercase tracking-wider text-[10px] mb-1">Ví đang dùng</div>
+            <div className="font-mono text-imperial-lightgold">{player.is_guest ? 'Chưa kết nối ví' : shortWallet}</div>
+            <div className="text-slate-400 mt-1 uppercase">{player.chain} • khóa người chơi ở trong ví</div>
+          </div>
+        )}
       </div>
 
       <nav className="dex-module-nav mb-8 mt-5 flex gap-2 overflow-x-auto" aria-label="Các khu vực kinh tế">

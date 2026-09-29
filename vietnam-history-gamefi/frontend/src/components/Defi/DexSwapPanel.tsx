@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDownUp,
   CheckCircle2,
@@ -82,8 +82,15 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
   const [execution, setExecution] = useState<DexExecution | null>(null);
   const [history, setHistory] = useState<DexSwapHistory[]>([]);
   const [historyStatus, setHistoryStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [intentKey, setIntentKey] = useState<string | null>(null);
+  const [quoteRetry, setQuoteRetry] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const quoteVersion = useRef(0);
+  const quoteAbort = useRef<AbortController | null>(null);
+
+  useEffect(() => () => {
+    quoteVersion.current += 1;
+    quoteAbort.current?.abort();
+  }, []);
 
   const tokens = useMemo(() => dexTokens(), []);
   const from = tokens.find((token) => token.symbol === fromToken)!;
@@ -164,10 +171,13 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
   }, []);
 
   const clearQuote = () => {
+    quoteVersion.current += 1;
+    quoteAbort.current?.abort();
+    quoteAbort.current = null;
     setOrder(null);
     setExecution(null);
-    setIntentKey(null);
     setError(null);
+    setRequestStatus((status) => status === 'quoting' ? 'idle' : status);
   };
 
   const reversePair = () => {
@@ -178,37 +188,53 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
     clearQuote();
   };
 
-  const requestOrder = async (forceNew = false) => {
-    if (amountError || !amount) return;
-    onPlayDrum();
+  const requestOrder = async (automatic = false) => {
+    if (player.is_guest || balanceStatus !== 'ready' || amountError || !amount) return;
+    if (!automatic) onPlayDrum();
+    const version = ++quoteVersion.current;
+    quoteAbort.current?.abort();
+    const controller = new AbortController();
+    quoteAbort.current = controller;
     setRequestStatus('quoting');
     setError(null);
     setExecution(null);
     try {
-      const key = forceNew || !intentKey ? newIdempotencyKey() : intentKey;
-      setIntentKey(key);
       const nextOrder = await apiService.createDexOrder({
         wallet: player.wallet,
         input_symbol: fromToken,
         output_symbol: toToken,
         amount: uiAmountToBaseUnits(amount, from.decimals),
         slippage_bps: slippageBps,
-        idempotency_key: key,
-      });
+        idempotency_key: newIdempotencyKey(),
+      }, controller.signal);
+      if (version !== quoteVersion.current) return;
       setOrder(nextOrder);
-      await refreshHistory();
+      if (!automatic) await refreshHistory();
     } catch (requestError) {
+      if (controller.signal.aborted || version !== quoteVersion.current) return;
       setOrder(null);
       setError(apiError(requestError));
     } finally {
-      setRequestStatus('idle');
+      if (version === quoteVersion.current) {
+        quoteAbort.current = null;
+        setRequestStatus('idle');
+      }
     }
   };
+
+  useEffect(() => {
+    if (player.is_guest || balanceStatus !== 'ready' || !amount || amountError
+        || execution?.status === 'Success' || requestStatus === 'signing' || requestStatus === 'executing') return;
+    const timer = window.setTimeout(() => void requestOrder(true), 500);
+    return () => window.clearTimeout(timer);
+  }, [amount, fromToken, toToken, slippageBps, balanceStatus, player.wallet, player.is_guest, quoteRetry, execution?.status]);
 
   const signAndExecute = async () => {
     if (!order?.executable) return;
     if (order.expires_at && Date.now() >= order.expires_at * 1000) {
-      setError('Báo giá đã hết hạn. Hãy lấy báo giá mới trước khi ký.');
+      setOrder(null);
+      setError('Báo giá đã hết hạn. Đang cập nhật báo giá mới.');
+      setQuoteRetry((value) => value + 1);
       return;
     }
     onPlayDrum();
@@ -280,7 +306,6 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
               <span className="dex-eyebrow">Giao dịch token</span>
               <h3 id="dex-swap-title">Swap</h3>
             </div>
-            <span className="dex-provider-badge">{SOLANA_NETWORK === 'devnet' ? 'Raydium · Devnet' : 'Jupiter · Mainnet'}</span>
           </header>
 
           <div className="dex-swap-body">
@@ -302,6 +327,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
                 inputMode="decimal"
                 placeholder="0.00"
                 className="dex-amount-input"
+                disabled={requestStatus === 'signing' || requestStatus === 'executing'}
                 aria-describedby={amount && amountError ? 'dex-amount-error' : undefined}
               />
               <div className="dex-token-actions">
@@ -311,7 +337,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
                     setAmount(maximumSpendable(balances[fromToken], fromToken));
                     clearQuote();
                   }}
-                  disabled={balanceStatus !== 'ready'}
+                  disabled={balanceStatus !== 'ready' || requestStatus === 'signing' || requestStatus === 'executing'}
                   className="dex-max-button"
                 >
                   MAX
@@ -320,6 +346,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
                   <img src={tokenLogo(fromToken)!} alt="" />
                   <select
                     value={fromToken}
+                    disabled={requestStatus === 'signing' || requestStatus === 'executing'}
                     onChange={(event) => {
                       const symbol = event.target.value as DexTokenSymbol;
                       setFromToken(symbol);
@@ -336,7 +363,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
             </div>
 
             <div className="dex-pair-switch-row">
-              <button type="button" onClick={reversePair} className="dex-pair-switch" aria-label="Đảo chiều cặp giao dịch">
+              <button type="button" onClick={reversePair} disabled={requestStatus === 'signing' || requestStatus === 'executing'} className="dex-pair-switch" aria-label="Đảo chiều cặp giao dịch">
                 <ArrowDownUp aria-hidden="true" size={19} />
               </button>
             </div>
@@ -355,6 +382,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
                     <img src={tokenLogo(toToken)!} alt="" />
                     <select
                       value={toToken}
+                      disabled={requestStatus === 'signing' || requestStatus === 'executing'}
                       onChange={(event) => { setToToken(event.target.value as DexTokenSymbol); clearQuote(); }}
                       aria-label="Token nhận"
                     >
@@ -372,6 +400,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
               <select
                 id="dex-slippage"
                 value={slippageBps}
+                disabled={requestStatus === 'signing' || requestStatus === 'executing'}
                 onChange={(event) => { setSlippageBps(Number(event.target.value)); clearQuote(); }}
               >
                 <option value={10}>0,10%</option>
@@ -413,19 +442,18 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
             {requestStatus !== 'idle' && (
               <p className="dex-operation-status" role="status" aria-live="polite">
                 <LoaderCircle size={15} className="dex-spin" aria-hidden="true" />
-                {requestStatus === 'quoting' ? 'Đang lấy báo giá từ pool…' : requestStatus === 'signing' ? 'Đang chờ xác nhận trong ví…' : 'Đang gửi và xác nhận giao dịch…'}
+                {requestStatus === 'quoting' ? 'Đang lấy báo giá…' : requestStatus === 'signing' ? 'Đang chờ xác nhận trong ví…' : 'Đang gửi và xác nhận giao dịch…'}
               </p>
             )}
 
-            {!order || order.simulation ? (
+            {!order || order.simulation ? error && canRequestQuote && (
               <button
                 type="button"
-                onClick={() => void requestOrder(Boolean(order?.simulation))}
+                onClick={() => void requestOrder()}
                 disabled={!canRequestQuote}
                 className="dex-primary-action"
               >
-                {requestStatus === 'quoting' && <LoaderCircle size={18} className="dex-spin" aria-hidden="true" />}
-                {order?.simulation ? 'Lấy lại báo giá mô phỏng' : 'Lấy báo giá'}
+                Thử lại báo giá
               </button>
             ) : (
               <div className="dex-action-row">
@@ -438,7 +466,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
                   {busy && <LoaderCircle size={18} className="dex-spin" aria-hidden="true" />}
                   {execution?.status === 'Success' ? 'Đã hoàn tất' : requestStatus === 'signing' ? 'Đang chờ ví ký…' : requestStatus === 'executing' ? 'Đang xác nhận…' : 'Ký và đổi'}
                 </button>
-                <button type="button" onClick={() => void requestOrder(true)} disabled={busy} className="dex-refresh-quote" aria-label="Lấy lại báo giá" title="Lấy lại báo giá">
+                <button type="button" onClick={() => void requestOrder()} disabled={busy} className="dex-refresh-quote" aria-label="Lấy lại báo giá" title="Lấy lại báo giá">
                   <RefreshCw size={18} aria-hidden="true" />
                 </button>
               </div>
@@ -449,13 +477,8 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
         <aside className="dex-market-card" aria-labelledby="dex-market-title">
           <header className="dex-card-heading">
             <div>
-              <span className="dex-eyebrow">Dữ liệu từ pool</span>
               <h3 id="dex-market-title">Thị trường</h3>
             </div>
-            <span className={poolAddress ? 'dex-pool-state is-ready' : 'dex-pool-state'}>
-              <span className="dex-state-dot" aria-hidden="true" />
-              {poolAddress ? 'Pool đã xác minh' : player.is_guest ? 'Cần kết nối ví' : balanceStatus === 'loading' ? 'Đang đọc pool' : 'Chưa có pool'}
-            </span>
           </header>
           <div className="dex-market-pair">
             <div className="dex-pair-logos">
@@ -468,20 +491,14 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
             </div>
           </div>
           <div className="dex-market-rate">
-            <span>Tỷ giá trung bình của lệnh · pool {networkLabel}</span>
+            <span>Tỷ giá swap</span>
             <strong>{rateDisplay ?? 'Chưa có báo giá'}</strong>
-            <small>{order
-              ? `Tỷ giá này áp dụng cho ${formatBaseUnits(BigInt(order.in_amount), order.input_decimals, 4)} ${fromToken}; gồm phí pool ${(order.fee_bps / 100).toFixed(2)}% và tác động giá ${(order.price_impact_bps / 100).toFixed(2)}%.`
-              : 'Nhập số lượng rồi lấy báo giá để xem lượng token có thể đổi.'}</small>
           </div>
           <div className="dex-market-rate dex-market-reference" aria-live="polite">
-            <span>Giá thị trường tham khảo · SOL/USD</span>
+            <span>Giá thị trường tham khảo</span>
             <strong>{referencePrice
               ? `1 SOL ≈ ${Number(referencePrice.price).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} USD`
               : referenceStatus === 'loading' ? 'Đang tải giá thị trường…' : 'Chưa có giá thị trường'}</strong>
-            <small>{referencePrice
-              ? `${referencePrice.source} · ${new Date(referencePrice.as_of).toLocaleTimeString('vi-VN')}. Giá này không quyết định lượng token Devnet nhận được.`
-              : 'Báo giá swap từ pool vẫn dùng được khi nguồn giá tham khảo tạm gián đoạn.'}</small>
           </div>
           <dl className="dex-market-facts">
             <div><dt>Định tuyến</dt><dd>{SOLANA_NETWORK === 'devnet' ? 'Raydium CPMM' : 'Jupiter'}</dd></div>
@@ -493,16 +510,6 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
               Kiểm tra pool trên Explorer <ExternalLink size={15} aria-hidden="true" />
             </a>
           )}
-          <div className="dex-wallet-strip">
-            <div>
-              <span>Ví giao dịch</span>
-              <strong title={player.wallet}>{player.is_guest ? 'Chưa kết nối' : `${player.wallet.slice(0, 6)}…${player.wallet.slice(-4)}`}</strong>
-            </div>
-            <button type="button" onClick={() => void refreshBalances()} disabled={balanceStatus === 'loading' || player.is_guest} aria-label="Tải lại số dư ví" title="Tải lại số dư ví">
-              <RefreshCw size={17} className={balanceStatus === 'loading' ? 'dex-spin' : ''} aria-hidden="true" />
-            </button>
-          </div>
-          <p className="dex-market-note">Số dư và lượng token nhận được đọc từ Solana {networkLabel}. Giá SOL/USD chỉ để tham khảo; USDC/USDT thử trên Devnet không được neo với USD và có thể lệch rất xa giá thị trường.</p>
         </aside>
       </div>
 

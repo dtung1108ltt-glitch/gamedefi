@@ -537,11 +537,12 @@ class GameApiService {
     return await res.json();
   }
 
-  async createDexOrder(payload: DexOrderRequest): Promise<DexOrder> {
+  async createDexOrder(payload: DexOrderRequest, signal?: AbortSignal): Promise<DexOrder> {
     const res = await fetch(`${API_BASE_URL}/dex/order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
       body: JSON.stringify(payload),
+      signal,
     });
     if (!res.ok) throw await apiError(res);
     return await res.json();
