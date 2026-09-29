@@ -215,6 +215,32 @@ class LeaderboardEntryOut(BaseModel):
     reputation_score: int
 
 
+class DailyQuestOut(BaseModel):
+    id: str
+    title: str
+    description: str
+    icon: str
+    quest_type: str
+    required: int
+    current_progress: int = 0
+    completed: bool = False
+    reward_claimed: bool = False
+    reward_gold: int = 0
+    reward_rice: int = 0
+    completed_at: float | None = None
+
+
+class DailyQuestSummaryOut(BaseModel):
+    date: str
+    quests: list[DailyQuestOut]
+    total_completed: int
+    total_quests: int
+    all_completed: bool
+    streak: int
+    streak_bonus_gold: int = 0
+    streak_bonus_rice: int = 0
+
+
 # ---------------------------------------------------------------------------
 # Marketplace & Trading Schemas (Optional Blockchain Layer)
 # ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import advisor, army, auth, battle, blockchain, dex, faction, leaderboard, marketplace, quest, reward
+from app.api import advisor, army, auth, battle, blockchain, dex, faction, leaderboard, marketplace, quest, reward, daily_quest
 from app.blockchain.adapter_resolver import AdapterResolver
 from app.blockchain.solana_adapter import SolanaAdapterError
 from app.core.config import get_settings
@@ -48,6 +48,7 @@ def create_app() -> FastAPI:
     app.include_router(army.router)
     app.include_router(battle.router)
     app.include_router(quest.router)
+    app.include_router(daily_quest.router)
     app.include_router(leaderboard.router)
     app.include_router(marketplace.router)
     app.include_router(blockchain.router)

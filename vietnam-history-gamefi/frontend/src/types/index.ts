@@ -65,6 +65,8 @@ export type PreGameStep =
   | 'advisor_council'  // Hội Đồng Quân Sư (xem và trang bị tướng cố vấn)
   | 'marketplace'      // Chợ Tướng Cố Vấn (mua, bán, trao đổi P2P trên blockchain)
   | 'defi'             // Trung tâm tài chính và DEX của người chơi
+  | 'quest_center'     // Trung tâm nhiệm vụ theo chu kỳ ngày-tuần-tháng-năm
+  | 'daily_quests'     // Nhiệm Vụ Hàng Ngày (legacy compatibility)
   | 'campaign_map'      // Bản đồ Chiến Dịch Lịch Sử (chọn mặt trận)
   | 'battle';           // Bàn cờ chiến thuật theo lượt (hex tactical battle)
 
@@ -168,18 +170,91 @@ export interface LeaderboardEntry {
   reputation_score: number;
 }
 
+export type QuestPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
+export type QuestCategory =
+  | 'combat'
+  | 'campaign'
+  | 'advisor'
+  | 'faction'
+  | 'progression'
+  | 'historical'
+  | 'economy'
+  | 'achievement';
+
+export type QuestStatus = 'locked' | 'active' | 'in_progress' | 'completed' | 'claimed' | 'expired';
+
+export type QuestRewardType =
+  | 'xp'
+  | 'gold'
+  | 'food'
+  | 'army'
+  | 'advisor_fragment'
+  | 'advisor'
+  | 'badge'
+  | 'title'
+  | 'special';
+
+export interface QuestReward {
+  type: QuestRewardType;
+  amount?: number;
+  itemId?: string;
+}
+
+export interface QuestRequirement {
+  type: 'player_level' | 'faction' | 'campaign' | 'advisor' | 'battle_count' | 'achievement';
+  value: string | number;
+}
+
 export interface Quest {
   id: string;
   title: string;
   description: string;
+  period?: QuestPeriod;
+  category?: QuestCategory;
+  target?: number;
+  progress?: number;
+  rewards?: QuestReward[];
+  status?: QuestStatus;
+  expiresAt?: string;
+  requirements?: QuestRequirement[];
   faction_id?: number | null;
-  required_battles: number;
+  required_battles?: number;
+  completed?: boolean;
+  completed_battles?: number;
+  reward_gold?: number;
+  reward_rice?: number;
+  reward_hkdv_base_units?: number;
+  reward_claim_status?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Nhiệm Vụ Hàng Ngày (Daily Quests)
+// ---------------------------------------------------------------------------
+
+export interface DailyQuest {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  quest_type: string;
+  required: number;
+  current_progress: number;
   completed: boolean;
-  completed_battles: number;
+  reward_claimed: boolean;
   reward_gold: number;
   reward_rice: number;
-  reward_hkdv_base_units: number;
-  reward_claim_status: string | null;
+  completed_at: number | null;
+}
+
+export interface DailyQuestSummary {
+  date: string;
+  quests: DailyQuest[];
+  total_completed: number;
+  total_quests: number;
+  all_completed: boolean;
+  streak: number;
+  streak_bonus_gold: number;
+  streak_bonus_rice: number;
 }
 
 export interface RewardClaim {

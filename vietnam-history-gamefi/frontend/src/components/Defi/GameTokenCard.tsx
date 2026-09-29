@@ -68,8 +68,8 @@ export const GameTokenCard: React.FC<GameTokenCardProps> = ({ player }) => {
     }
   };
 
-  const tokenAmount = (amount: number) =>
-    formatBaseUnits(BigInt(amount), snapshot?.token.decimals ?? 6, 6);
+  const tokenAmount = (amount?: number) =>
+    formatBaseUnits(BigInt(amount ?? 0), snapshot?.token.decimals ?? 6, 6);
 
   return (
     <div className="mt-5 rounded-xl border border-amber-600/40 bg-amber-950/20 p-3 text-xs">

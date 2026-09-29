@@ -3,6 +3,7 @@ import {
   Army,
   BattleResultResponse,
   ChainType,
+  DailyQuestSummary,
   Faction,
   FactionRegisterRequest,
   GameTokenInfo,
@@ -415,6 +416,36 @@ class GameApiService {
   async getPlayerQuests(wallet: string): Promise<Quest[]> {
     const res = await fetch(`${API_BASE_URL}/quests/players/${wallet}`, {
       headers: this.authHeaders(),
+    });
+    if (!res.ok) throw await apiError(res);
+    return await res.json();
+  }
+
+  // -------------------------------------------------------------------------
+  // Daily Quests (Nhiệm Vụ Hàng Ngày)
+  // -------------------------------------------------------------------------
+
+  async getDailyQuests(wallet: string): Promise<DailyQuestSummary> {
+    const res = await fetch(`${API_BASE_URL}/daily-quests/players/${wallet}`, {
+      headers: this.authHeaders(),
+    });
+    if (!res.ok) throw await apiError(res);
+    return await res.json();
+  }
+
+  async claimDailyQuest(wallet: string, questId: string): Promise<DailyQuestSummary> {
+    const res = await fetch(`${API_BASE_URL}/daily-quests/players/${wallet}/claim/${questId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+    });
+    if (!res.ok) throw await apiError(res);
+    return await res.json();
+  }
+
+  async claimAllDailyQuests(wallet: string): Promise<DailyQuestSummary> {
+    const res = await fetch(`${API_BASE_URL}/daily-quests/players/${wallet}/claim-all`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
     });
     if (!res.ok) throw await apiError(res);
     return await res.json();

@@ -12,6 +12,7 @@ interface PreGameLobbyProps {
   onOpenAdvisorCouncil: () => void;
   onOpenMarketplace: () => void;
   onOpenDefiHub: () => void;
+  onOpenDailyQuests?: () => void;
   onPlayDrum: () => void;
   onPlayGong: () => void;
   onPlaySword: () => void;
@@ -19,7 +20,7 @@ interface PreGameLobbyProps {
 
 export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
   player, faction, onChangeFaction, onEnterBattle, onOpenAdvisorCouncil,
-  onOpenMarketplace, onOpenDefiHub, onPlayDrum, onPlayGong, onPlaySword,
+  onOpenMarketplace, onOpenDefiHub, onOpenDailyQuests, onPlayDrum, onPlayGong, onPlaySword,
 }) => {
   const [army, setArmy] = useState<Army | null>(null);
   const [armyLoading, setArmyLoading] = useState(true);
@@ -76,6 +77,9 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
             <div className="lobby-panel-heading"><div><p className="lobby-kicker">Bước tiếp theo</p><h2 id="lobby-next-title">Tiến vào sử Việt</h2></div><Swords aria-hidden="true" /></div>
             <p className="lobby-panel-intro">Dàn trận trên chiến trường hoặc khám phá các khu vực của hệ sinh thái.</p>
             <button type="button" className="lobby-next-primary" onClick={launch}><Swords aria-hidden="true" /><span><strong>Xuất quân</strong><small>Bước vào bản đồ chiến dịch</small></span><ArrowRight aria-hidden="true" /></button>
+            {onOpenDailyQuests && (
+              <button type="button" className="lobby-next-link" style={{ background: 'linear-gradient(135deg, #2a1810, #3d2314)', borderColor: '#c89b5d' }} onClick={() => openWithDrum(onOpenDailyQuests)}><Trophy aria-hidden="true" style={{ color: '#f3d393' }} /><span><strong style={{ color: '#f5d08b' }}>Quest Center</strong><small>Nhiệm vụ theo ngày · tuần · tháng · năm</small></span><ArrowRight aria-hidden="true" /></button>
+            )}
             <button type="button" className="lobby-next-link" onClick={() => openWithDrum(onOpenMarketplace)}><ShoppingBag aria-hidden="true" /><span><strong>Marketplace</strong><small>Xem trước Chợ Tướng · giao dịch tạm khóa</small></span><ArrowRight aria-hidden="true" /></button>
             <button type="button" className="lobby-next-link" onClick={() => openWithDrum(onOpenDefiHub)}><ArrowLeftRight aria-hidden="true" /><span><strong>DEX HKDV / SOL</strong><small>{player.is_guest ? 'Kết nối ví để giao dịch' : 'Giao thương trên Solana Devnet'}</small></span><ArrowRight aria-hidden="true" /></button>
           </section>

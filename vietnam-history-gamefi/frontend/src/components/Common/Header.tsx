@@ -11,6 +11,7 @@ interface HeaderProps {
   onOpenAdvisors: () => void;
   onOpenMarketplace: () => void;
   onOpenDex: () => void;
+  onOpenQuests: () => void;
   onOpenLeaderboard: () => void;
   onOpenWalletModal: () => void;
   onDisconnect: () => void;
@@ -24,6 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAdvisors,
   onOpenMarketplace,
   onOpenDex,
+  onOpenQuests,
   onOpenLeaderboard,
   onOpenWalletModal,
   onDisconnect,
@@ -34,6 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
     { label: 'Trang chủ', action: onOpenHome, active: activeStep === 'splash', Icon: Shield },
     { label: 'Chiến dịch', action: onOpenCampaign, active: ['faction_select', 'lobby', 'campaign_map', 'battle'].includes(activeStep), Icon: Shield },
     { label: 'Tướng lĩnh', action: onOpenAdvisors, active: activeStep === 'advisor_council', Icon: Crown },
+    { label: 'Quest', action: onOpenQuests, active: activeStep === 'quest_center', Icon: Trophy },
     { label: 'Marketplace', action: onOpenMarketplace, active: activeStep === 'marketplace', Icon: ShoppingBag },
     { label: 'DEX', action: onOpenDex, active: activeStep === 'defi', Icon: ArrowLeftRight },
     { label: 'Bảng xếp hạng', action: onOpenLeaderboard, active: false, Icon: Trophy },

@@ -67,3 +67,19 @@
   .app-footer-brand p { font-size: .63rem; }
   .app-footer-community { grid-column: 1 / -1; }
 }
+
+/* Daily Quest Panel */
+.daily-quest-banner { border-radius: 6px; background: linear-gradient(90deg, #071521f7, #0a1e2de8 55%, #07152191), url('/dai-viet-worlds.webp') 50% center / 300% 100%; }
+.daily-quest-card { border: 1px solid #526873; border-radius: 6px; background: #0c2231; transition: border-color .2s ease, box-shadow .2s ease; }
+.daily-quest-card:hover { border-color: #8b744f; }
+.daily-quest-card.completed { border-color: #34d399; }
+.daily-quest-card.claimed { border-color: #526873; opacity: .7; }
+.daily-quest-progress { height: 6px; border-radius: 3px; background: #1a3445; overflow: hidden; }
+.daily-quest-progress-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #d4a853, #f5d08b); transition: width .5s ease; }
+.daily-quest-progress-fill.complete { background: linear-gradient(90deg, #34d399, #6ee7b7); }
+.daily-quest-claim-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; border: 1px solid #c89b5d; border-radius: 4px; background: linear-gradient(135deg, #8b5e24, #c89b5d); color: #fff; font-size: .72rem; font-weight: 700; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
+.daily-quest-claim-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px #c89b5d44; }
+.daily-quest-claim-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+.daily-quest-streak { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border: 1px solid #8b744f; border-radius: 6px; background: linear-gradient(135deg, #1a0f0a, #2a1810); }
+@keyframes quest-claim-pop { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+.quest-claimed-anim { animation: quest-claim-pop .4s ease; }

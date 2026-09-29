@@ -15,6 +15,8 @@ import { BattleScreen } from './components/Battle/BattleScreen';
 import { AdvisorCouncil } from './components/Advisor/AdvisorCouncil';
 import { AdvisorMarketplace } from './components/Marketplace/AdvisorMarketplace';
 import { DefiHub } from './components/Defi/DefiHub';
+import { DailyQuestPanel } from './components/DailyQuest/DailyQuestPanel';
+import { QuestCenter } from './components/QuestCenter/QuestCenter';
 import './App.css';
 
 export const App: React.FC = () => {
@@ -143,6 +145,10 @@ export const App: React.FC = () => {
         onOpenHome={() => setStep('splash')}
         onOpenCampaign={handleOpenCampaign}
         onOpenAdvisors={handleOpenAdvisors}
+        onOpenQuests={() => {
+          if (!effectivePlayer) { void handleEnterF2P(); return; }
+          setStep('quest_center');
+        }}
         onOpenLeaderboard={handleOpenLeaderboard}
         onOpenWalletModal={() => setIsWalletModalOpen(true)}
         onDisconnect={handleDisconnect}
@@ -196,6 +202,10 @@ export const App: React.FC = () => {
             onOpenAdvisorCouncil={() => setStep('advisor_council')}
             onOpenMarketplace={() => setStep('marketplace')}
             onOpenDefiHub={handleOpenDex}
+            onOpenDailyQuests={() => {
+              if (!effectivePlayer) { void handleEnterF2P(); return; }
+              setStep('quest_center');
+            }}
             onPlayDrum={playDrum}
             onPlayGong={playGong}
             onPlaySword={playSwordShink}
@@ -241,6 +251,24 @@ export const App: React.FC = () => {
               setStep('battle');
             }}
             onBackToLobby={() => setStep('lobby')}
+            onPlayGong={playGong}
+          />
+        )}
+
+        {step === 'quest_center' && effectivePlayer && (
+          <QuestCenter
+            player={effectivePlayer}
+            onBack={() => setStep(effectivePlayer.faction_id ? 'lobby' : 'splash')}
+            onPlayDrum={playDrum}
+            onPlayGong={playGong}
+          />
+        )}
+
+        {step === 'daily_quests' && effectivePlayer && (
+          <DailyQuestPanel
+            player={effectivePlayer}
+            onBack={() => setStep(effectivePlayer.faction_id ? 'lobby' : 'splash')}
+            onPlayDrum={playDrum}
             onPlayGong={playGong}
           />
         )}

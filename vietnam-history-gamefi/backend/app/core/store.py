@@ -16,6 +16,69 @@ from dataclasses import dataclass, field
 from app.core.security import normalize_wallet
 
 
+DAILY_QUEST_DEFINITIONS = [
+    {
+        "id": "daily_login",
+        "title": "Điểm Danh Hàng Ngày",
+        "description": "Đăng nhập vào game mỗi ngày để nhận thưởng.",
+        "icon": "🏯",
+        "required": 1,
+        "reward_gold": 500,
+        "reward_rice": 200,
+        "quest_type": "login",
+    },
+    {
+        "id": "daily_battle_1",
+        "title": "Chiến Binh Hàng Ngày",
+        "description": "Hoàn thành 1 trận đánh trong ngày.",
+        "icon": "⚔️",
+        "required": 1,
+        "reward_gold": 800,
+        "reward_rice": 400,
+        "quest_type": "battle",
+    },
+    {
+        "id": "daily_battle_3",
+        "title": "Mãnh Tướng Xung Trận",
+        "description": "Hoàn thành 3 trận đánh trong ngày.",
+        "icon": "🐉",
+        "required": 3,
+        "reward_gold": 1500,
+        "reward_rice": 800,
+        "quest_type": "battle",
+    },
+    {
+        "id": "daily_win_1",
+        "title": "Chiến Thắng Vinh Quang",
+        "description": "Giành chiến thắng 1 trận trong ngày.",
+        "icon": "🏆",
+        "required": 1,
+        "reward_gold": 1000,
+        "reward_rice": 500,
+        "quest_type": "win",
+    },
+    {
+        "id": "daily_win_3",
+        "title": "Bách Chiến Bách Thắng",
+        "description": "Giành chiến thắng 3 trận trong ngày.",
+        "icon": "👑",
+        "required": 3,
+        "reward_gold": 2500,
+        "reward_rice": 1200,
+        "quest_type": "win",
+    },
+]
+
+@dataclass
+class DailyQuestProgress:
+    quest_id: str
+    player_wallet: str
+    date: str  # YYYY-MM-DD format
+    current_progress: int = 0
+    required: int = 1
+    completed: bool = False
+    reward_claimed: bool = False
+    completed_at: float | None = None
 @dataclass
 class Player:
     wallet: str
@@ -108,11 +171,115 @@ class Store:
         self.listings: dict[str, MarketplaceListing] = {}
         self.trades: dict[str, TradeRecord] = {}
         self.advisor_ownerships: dict[str, AdvisorOwnership] = {}
+        self.daily_quest_progress: dict[str, DailyQuestProgress] = {}
         self._advisors_cache: list[dict] | None = None
 
     @staticmethod
     def _key(chain: str, wallet: str) -> str:
         return f"{chain}:{normalize_wallet(chain, wallet)}"
+
+    # ---------------------------------------------------------------- Daily Quests
+    def get_daily_quests(self, wallet: str, date: str) -> list[DailyQuestProgress]:
+        import datetime
+        player = self.find_player_any_chain(wallet)
+        if not player:
+            return []
+        norm_wallet = player.wallet
+
+        results = []
+        for q_def in DAILY_QUEST_DEFINITIONS:
+            key = f"{norm_wallet}:{q_def['id']}:{date}"
+            if key not in self.daily_quest_progress:
+                self.daily_quest_progress[key] = DailyQuestProgress(
+                    quest_id=q_def['id'],
+                    player_wallet=norm_wallet,
+                    date=date,
+                    required=q_def['required']
+                )
+            results.append(self.daily_quest_progress[key])
+        return results
+
+    def update_daily_quest_progress(self, wallet: str, quest_id: str, date: str, increment: int = 1) -> DailyQuestProgress | None:
+        player = self.find_player_any_chain(wallet)
+        if not player:
+            return None
+        norm_wallet = player.wallet
+        key = f"{norm_wallet}:{quest_id}:{date}"
+        
+        # Ensure it exists
+        if key not in self.daily_quest_progress:
+            self.get_daily_quests(wallet, date)
+            
+        progress = self.daily_quest_progress.get(key)
+        if not progress or progress.completed:
+            return progress
+            
+        progress.current_progress += increment
+        if progress.current_progress >= progress.required:
+            progress.current_progress = progress.required
+            progress.completed = True
+            progress.completed_at = time.time()
+            
+        return progress
+
+    def claim_daily_quest_reward(self, wallet: str, quest_id: str, date: str) -> DailyQuestProgress | None:
+        player = self.find_player_any_chain(wallet)
+        if not player:
+            return None
+        norm_wallet = player.wallet
+        key = f"{norm_wallet}:{quest_id}:{date}"
+        
+        progress = self.daily_quest_progress.get(key)
+        if not progress or not progress.completed or progress.reward_claimed:
+            return None
+            
+        progress.reward_claimed = True
+        
+        # Add rewards
+        for q_def in DAILY_QUEST_DEFINITIONS:
+            if q_def['id'] == quest_id:
+                player.gold += q_def.get('reward_gold', 0)
+                player.rice += q_def.get('reward_rice', 0)
+                break
+                
+        return progress
+
+    def get_daily_streak(self, wallet: str) -> int:
+        import datetime
+        player = self.find_player_any_chain(wallet)
+        if not player:
+            return 0
+        norm_wallet = player.wallet
+        
+        streak = 0
+        current_date = datetime.date.today()
+        
+        while True:
+            date_str = current_date.isoformat()
+            
+            # Check if all quests are completed on this date
+            all_completed = True
+            has_any = False
+            for q_def in DAILY_QUEST_DEFINITIONS:
+                key = f"{norm_wallet}:{q_def['id']}:{date_str}"
+                prog = self.daily_quest_progress.get(key)
+                if prog:
+                    has_any = True
+                if not prog or not prog.completed:
+                    all_completed = False
+                    break
+                    
+            if not has_any and streak == 0:
+                # If we're checking today and no quests exist yet, just continue to yesterday
+                pass
+            elif not all_completed:
+                break
+            else:
+                streak += 1
+                
+            current_date -= datetime.timedelta(days=1)
+            
+        return streak
 
     # ---------------------------------------------------------------- Player
     def get_or_create_player(self, chain: str, wallet: str) -> Player:
@@ -223,6 +390,12 @@ class Store:
         player = self.find_player_any_chain(record.player_wallet)
         if player:
             player.total_battles += 1
+            
+            import datetime
+            today = datetime.date.today().isoformat()
+            self.update_daily_quest_progress(player.wallet, "daily_battle_1", today)
+            self.update_daily_quest_progress(player.wallet, "daily_battle_3", today)
+            
             if record.victory:
                 player.battles_won += 1
                 player.campaign_stars += 3
@@ -232,6 +405,10 @@ class Store:
                 # Level up check
                 if player.experience >= player.level * 200:
                     player.level += 1
+                    
+                self.update_daily_quest_progress(player.wallet, "daily_win_1", today)
+                self.update_daily_quest_progress(player.wallet, "daily_win_3", today)
+                
         return record
 
     def get_battle(self, battle_id: str) -> BattleRecord | None:
