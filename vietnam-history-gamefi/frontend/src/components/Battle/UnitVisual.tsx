@@ -53,24 +53,43 @@ const Unit2DLayeredRenderer: React.FC<UnitVisualProps> = ({ unit, isPlayer, isMo
     >
       {/* LAYER 0: Shadow & Cape (Z = -4px) */}
       <svg width="64" height="96" className="absolute inset-0 overflow-visible" style={{ transform: 'translateZ(-4px)' }}>
-        {/* Contact Shadow on terrain */}
-        <ellipse cx="32" cy="90" rx="18" ry="8" fill="rgba(0,0,0,0.6)" filter="blur(3px)" />
         {/* Cape */}
-        <path 
-          d="M 20 34 Q 10 60 16 80 L 48 80 Q 54 60 44 34 Z" 
-          fill={colorSecondary} 
-          className={isMoving ? 'origin-top animate-[cape-flutter_0.8s_ease-in-out_infinite]' : ''}
-        />
+        {type === 'commander' ? (
+          <g className={isMoving ? 'origin-top animate-[cape-flutter_0.8s_ease-in-out_infinite]' : ''}>
+            <path 
+              d="M 16 30 Q 6 60 10 86 L 54 86 Q 58 60 48 30 Z" 
+              fill={isPlayer ? '#1e3a8a' : '#881337'} 
+            />
+            <path d="M 10 84 L 54 84" stroke="#fbbf24" strokeWidth="2.5" />
+          </g>
+        ) : (
+          <path 
+            d="M 20 34 Q 10 60 16 80 L 48 80 Q 54 60 44 34 Z" 
+            fill={colorSecondary} 
+            className={isMoving ? 'origin-top animate-[cape-flutter_0.8s_ease-in-out_infinite]' : ''}
+          />
+        )}
       </svg>
       
-      {/* LAYER 1: Mount (if cavalry/elephant) (Z = -2px) */}
-      {(type === 'cavalry' || type === 'elephant') && (
+      {/* LAYER 1: Mount (if cavalry/elephant/commander) (Z = -2px) */}
+      {(type === 'cavalry' || type === 'elephant' || type === 'commander') && (
         <svg width="64" height="96" className="absolute inset-0 overflow-visible" style={{ transform: 'translateZ(-2px)' }}>
-          {type === 'cavalry' && (
+          {(type === 'cavalry' || type === 'commander') && (
             <g className={isMoving ? 'animate-[bounce_0.4s_infinite]' : ''}>
-              <path d="M 10 50 Q 20 40 40 40 Q 60 40 50 60 L 50 80 L 40 80 L 40 60 L 20 60 L 20 80 L 10 80 Z" fill="#78350f" />
+              {/* Horse Body */}
+              <path 
+                d="M 10 50 Q 20 40 40 40 Q 60 40 50 60 L 50 80 L 40 80 L 40 60 L 20 60 L 20 80 L 10 80 Z" 
+                fill={type === 'commander' ? (isPlayer ? '#f8fafc' : '#1e293b') : '#78350f'} 
+              />
               {/* Horse Head */}
-              <path d="M 40 40 L 55 20 L 65 25 L 60 45 Z" fill="#78350f" />
+              <path 
+                d="M 40 40 L 55 20 L 65 25 L 60 45 Z" 
+                fill={type === 'commander' ? (isPlayer ? '#f8fafc' : '#1e293b') : '#78350f'} 
+              />
+              {/* Commander Horse Gold Barding / Champron */}
+              {type === 'commander' && (
+                <path d="M 50 22 L 62 26 L 56 36 Z" fill="#fbbf24" stroke="#b45309" strokeWidth="1" />
+              )}
             </g>
           )}
           {type === 'elephant' && (
@@ -91,50 +110,86 @@ const Unit2DLayeredRenderer: React.FC<UnitVisualProps> = ({ unit, isPlayer, isMo
       {/* LAYER 2: Body & Legs (Z = 0px) */}
       <svg width="64" height="96" className="absolute inset-0 overflow-visible" style={{ transform: 'translateZ(0px)' }}>
         {/* If mounted, rider is shifted up */}
-        <g style={{ transform: (type === 'cavalry' || type === 'elephant') ? 'translateY(-20px)' : 'none' }}>
+        <g style={{ transform: (type === 'cavalry' || type === 'elephant' || type === 'commander') ? 'translateY(-20px)' : 'none' }}>
           {/* Legs (only animate if not mounted) */}
-          <g className={(isMoving && type !== 'cavalry' && type !== 'elephant') ? 'animate-[leg-swing_0.5s_infinite_alternate]' : ''}>
+          <g className={(isMoving && type !== 'cavalry' && type !== 'elephant' && type !== 'commander') ? 'animate-[leg-swing_0.5s_infinite_alternate]' : ''}>
             <path d="M 26 55 L 26 86" stroke="#475569" strokeWidth="7" strokeLinecap="round" />
           </g>
-          <g className={(isMoving && type !== 'cavalry' && type !== 'elephant') ? 'animate-[leg-swing-rev_0.5s_infinite_alternate]' : ''}>
+          <g className={(isMoving && type !== 'cavalry' && type !== 'elephant' && type !== 'commander') ? 'animate-[leg-swing-rev_0.5s_infinite_alternate]' : ''}>
             <path d="M 38 55 L 38 86" stroke="#334155" strokeWidth="7" strokeLinecap="round" />
           </g>
           {/* Torso */}
-          <rect x="22" y="36" width="20" height="26" rx="4" fill={colorPrimary} />
+          <rect x="22" y="36" width="20" height="26" rx="4" fill={type === 'commander' ? (isPlayer ? '#1e40af' : '#7f1d1d') : colorPrimary} />
         </g>
       </svg>
 
       {/* LAYER 3: Armor & Details (Z = 4px) */}
       <svg width="64" height="96" className="absolute inset-0 overflow-visible" style={{ transform: 'translateZ(4px)' }}>
-        <g style={{ transform: (type === 'cavalry' || type === 'elephant') ? 'translateY(-20px)' : 'none' }}>
-          {/* Chest Plate */}
-          <path d="M 20 34 L 44 34 L 42 50 L 22 50 Z" fill={colorArmor} />
-          {/* Shoulder Pads */}
-          <circle cx="22" cy="38" r="5" fill="#fbbf24" />
-          <circle cx="42" cy="38" r="5" fill="#fbbf24" />
-          {/* Belt */}
-          <rect x="21" y="48" width="22" height="4" fill="#1e293b" />
-          <rect x="30" y="46" width="4" height="8" fill="#fbbf24" />
+        <g style={{ transform: (type === 'cavalry' || type === 'elephant' || type === 'commander') ? 'translateY(-20px)' : 'none' }}>
+          {type === 'commander' ? (
+            <g>
+              {/* Golden Dragon Breastplate */}
+              <path d="M 20 34 L 44 34 L 42 50 L 22 50 Z" fill="#d97706" stroke="#fbbf24" strokeWidth="1.5" />
+              {/* Royal Gold Lion Shoulder Pads */}
+              <circle cx="21" cy="38" r="6" fill="#fbbf24" stroke="#b45309" strokeWidth="1" />
+              <circle cx="43" cy="38" r="6" fill="#fbbf24" stroke="#b45309" strokeWidth="1" />
+              {/* Gold Sash & Ruby Gem */}
+              <rect x="20" cy="48" width="24" height="4" fill="#fbbf24" />
+              <circle cx="32" cy="50" r="3" fill="#ef4444" />
+            </g>
+          ) : (
+            <g>
+              {/* Chest Plate */}
+              <path d="M 20 34 L 44 34 L 42 50 L 22 50 Z" fill={colorArmor} />
+              {/* Shoulder Pads */}
+              <circle cx="22" cy="38" r="5" fill="#fbbf24" />
+              <circle cx="42" cy="38" r="5" fill="#fbbf24" />
+              {/* Belt */}
+              <rect x="21" y="48" width="22" height="4" fill="#1e293b" />
+              <rect x="30" y="46" width="4" height="8" fill="#fbbf24" />
+            </g>
+          )}
         </g>
       </svg>
 
       {/* LAYER 4: Head & Face (Z = 8px) */}
       <svg width="64" height="96" className="absolute inset-0 overflow-visible" style={{ transform: 'translateZ(8px)' }}>
-        <g style={{ transform: (type === 'cavalry' || type === 'elephant') ? 'translateY(-20px)' : 'none' }}>
+        <g style={{ transform: (type === 'cavalry' || type === 'elephant' || type === 'commander') ? 'translateY(-20px)' : 'none' }}>
           {/* Neck */}
           <rect x="29" y="28" width="6" height="10" fill={colorSkin} />
           {/* Face */}
           <circle cx="32" cy="22" r="8" fill={colorSkin} />
-          {/* Helmet (Vietnamese historic style) */}
-          <path d="M 20 22 Q 32 0 44 22 L 46 26 L 18 26 Z" fill={colorArmor} />
-          <path d="M 32 6 L 32 0" stroke="#fbbf24" strokeWidth="3" />
-          <circle cx="32" cy="0" r="3" fill="#ef4444" />
+          {/* Helmet */}
+          {type === 'commander' ? (
+            <g>
+              {/* Royal Commander Dragon Crown Helmet */}
+              <path d="M 18 22 Q 32 -2 46 22 L 48 26 L 16 26 Z" fill="#d97706" stroke="#fbbf24" strokeWidth="1.5" />
+              <polygon points="32,-5 27,6 37,6" fill="#ef4444" />
+              <circle cx="32" cy="-5" r="3.5" fill="#fbbf24" />
+            </g>
+          ) : (
+            <g>
+              <path d="M 20 22 Q 32 0 44 22 L 46 26 L 18 26 Z" fill={colorArmor} />
+              <path d="M 32 6 L 32 0" stroke="#fbbf24" strokeWidth="3" />
+              <circle cx="32" cy="0" r="3" fill="#ef4444" />
+            </g>
+          )}
         </g>
       </svg>
 
       {/* LAYER 5: Weapon & Shield (Z = 12px) */}
       <svg width="64" height="96" className="absolute inset-0 overflow-visible" style={{ transform: 'translateZ(12px)' }}>
-        <g style={{ transform: (type === 'cavalry' || type === 'elephant') ? 'translateY(-20px)' : 'none' }}>
+        <g style={{ transform: (type === 'cavalry' || type === 'elephant' || type === 'commander') ? 'translateY(-20px)' : 'none' }}>
+          {type === 'commander' && (
+            <g className={isAttacking ? 'animate-[thrust_0.3s_ease-in-out_2]' : ''}>
+              {/* Royal Commander Sword */}
+              <line x1="46" y1="65" x2="62" y2="4" stroke="#fbbf24" strokeWidth="4" strokeLinecap="round" />
+              <polygon points="64,-2 58,12 68,9" fill="#f8fafc" stroke="#fbbf24" strokeWidth="1" />
+              {/* Golden Commander Shield */}
+              <circle cx="18" cy="48" r="13" fill="#b45309" stroke="#fbbf24" strokeWidth="2" />
+              <polygon points="18,39 23,48 18,57 13,48" fill="#fbbf24" />
+            </g>
+          )}
           {type === 'spear' && (
             <g className={isAttacking ? 'animate-[thrust_0.3s_ease-in-out_2]' : ''}>
               {/* Spear */}

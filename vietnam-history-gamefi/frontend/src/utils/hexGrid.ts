@@ -54,3 +54,28 @@ export function hexDistance(a: { col: number; row: number }, b: { col: number; r
   const bc = toCube(b.col, b.row);
   return Math.max(Math.abs(ac.x - bc.x), Math.abs(ac.y - bc.y), Math.abs(ac.z - bc.z));
 }
+
+/**
+ * Tính toán độ cao mặt phẳng bề mặt ô hex theo địa hình (Surface Z offset).
+ */
+export function getHexSurfaceHeight(terrain?: string): number {
+  switch (terrain) {
+    case 'hill': return 10;    // Gò cao (+10px theo trục pháp tuyến mặt đất Z)
+    case 'fort': return 4;     // Doanh trại / Công sự (+4px theo Z)
+    case 'forest': return 2;   // Nền rừng (+2px)
+    case 'mud': return -2;     // Bãi lầy (-2px)
+    case 'river': return -4;   // Mặt nước sông (-4px)
+    case 'stakes': return -4;  // Đáy sông cắm cọc (-4px)
+    default: return 0;         // Đồng bằng cơ bản (0px)
+  }
+}
+
+/**
+ * Trả về toạ độ bề mặt hoàn chỉnh của ô hex (x, y, surfaceZ).
+ * Dùng làm gốc neo trực tiếp cho chân nhân vật, cây cối, cọc ngầm, căn cứ.
+ */
+export function getHexSurfacePosition(col: number, row: number, terrain?: string, size: number = HEX_SIZE) {
+  const { x, y } = hexToPixel(col, row, size);
+  const surfaceZ = getHexSurfaceHeight(terrain);
+  return { x, y, surfaceZ };
+}

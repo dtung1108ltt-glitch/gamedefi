@@ -329,7 +329,7 @@ export interface HexTile {
 }
 
 export type UnitSide = 'player' | 'enemy';
-export type UnitIcon = 'spear' | 'archer' | 'elephant' | 'cavalry';
+export type UnitIcon = 'spear' | 'archer' | 'elephant' | 'cavalry' | 'commander';
 
 export interface BattleUnitStats {
   at: number;   // Quân số (Troop Strength)
@@ -348,6 +348,7 @@ export interface BattleUnit {
   col: number;
   row: number;
   stats: BattleUnitStats;
+  is_commander?: boolean;
 }
 
 export type TacticalAction = 'move' | 'attack' | 'formation' | 'fire_arrow';

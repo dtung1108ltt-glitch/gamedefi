@@ -93,6 +93,7 @@ namespace VnHistoryGameFi.Core
         private void OnEnable()
         {
             if (apiClient != null) apiClient.OnUnauthorized += HandleUnauthorized;
+            AddButtonListeners();
         }
 
         private void OnDisable()
@@ -103,7 +104,6 @@ namespace VnHistoryGameFi.Core
 
         private void Start()
         {
-            AddButtonListeners();
             SetLoggedInControls(false);
             if (battleResultPanel != null) battleResultPanel.SetActive(false);
             if (openExplorerButton != null) openExplorerButton.interactable = false;

@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Faction, Player, BattleResultResponse, BattleUnit, HexTile, TerrainType, TacticalAction, MapLocation, RewardClaim } from '../../types';
 import { apiService } from '../../services/api';
 import { BACH_DANG_HEXES, BACH_DANG_UNITS, BATTLEFIELD_DIMS } from '../../data/campaign';
-import { hexToPixel, hexPolygonPoints, boardPixelSize, hexDistance, HEX_SIZE } from '../../utils/hexGrid';
+import { hexToPixel, hexPolygonPoints, boardPixelSize, hexDistance, HEX_SIZE, getHexSurfaceHeight, getHexSurfacePosition } from '../../utils/hexGrid';
 import {
   ArrowLeft, Waves, Move, Swords, LayoutGrid, Flame, MousePointer2, ExternalLink, LoaderCircle, Trophy, Shield
 } from 'lucide-react';
@@ -30,6 +30,14 @@ const ACTIONS: { key: TacticalAction; label: string; icon: React.ReactNode; colo
 ];
 
 const TILT_ANGLE = 50;
+
+// BattlefieldRoot position offset to align the hex board center with the playable viewport center
+// (Hex coordinates have center at ~ (375, 200). After 50° pitch & 35° yaw isometric projection,
+// this offset moves the battlefield down and into the visual center of the playable area, clear of the top header)
+const BATTLEFIELD_ROOT_OFFSET = {
+  x: 45,
+  y: 180,
+};
 
 import { UnitEntity } from './UnitEntity';
 import { useAutoBattle } from './engine/useAutoBattle';
@@ -96,7 +104,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
     const set = new Set<string>();
     if (activeAction === 'move') {
       for (const tile of BACH_DANG_HEXES) {
-        if (tile.zone === 'enemy') continue;
+        if (tile.terrain === 'fort' && tile.zone === 'enemy') continue;
         const dist = hexDistance(selectedUnit, tile);
         if (dist > 0 && dist <= 2 && !unitAt(tile.col, tile.row)) set.add(`${tile.col}-${tile.row}`);
       }
@@ -222,7 +230,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
       
       <style>{`
         @keyframes battle-shake { 0%, 100% { transform: translate(0, 0); } 20% { transform: translate(-8px, 4px) rotate(-1deg); } 40% { transform: translate(8px, -4px) rotate(1deg); } 60% { transform: translate(-4px, 8px); } 80% { transform: translate(4px, -8px); } }
-        @keyframes dmg-float { 0% { opacity: 0; transform: translate(-50%, -50%) rotateZ(${-camera.yaw}deg) rotateX(${-camera.pitch}deg) scale(0.5); } 20% { opacity: 1; transform: translate(-50%, -150%) rotateZ(${-camera.yaw}deg) rotateX(${-camera.pitch}deg) scale(1.2); } 100% { opacity: 0; transform: translate(-50%, -250%) rotateZ(${-camera.yaw}deg) rotateX(${-camera.pitch}deg) scale(1); } }
+        @keyframes dmg-float { 0% { opacity: 0; transform: translate(-50%, 0px) rotateZ(${-camera.yaw}deg) rotateX(-90deg) scale(0.6); } 20% { opacity: 1; transform: translate(-50%, -30px) rotateZ(${-camera.yaw}deg) rotateX(-90deg) scale(1.2); } 100% { opacity: 0; transform: translate(-50%, -70px) rotateZ(${-camera.yaw}deg) rotateX(-90deg) scale(1.0); } }
         .bg-water-noise { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.015' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.3'/%3E%3C/svg%3E"); }
       `}</style>
 
@@ -241,15 +249,15 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
-        style={{ cursor: isDragging ? 'grabbing' : activeAction ? 'crosshair' : 'grab' }}
+        style={{ cursor: activeAction ? 'crosshair' : 'default' }}
       >
-        <div className="absolute top-1/2 left-1/2 w-[1200px] h-[900px] flex items-center justify-center pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-[900px] flex items-center justify-center pointer-events-none">
           
-          {/* 2.5D BOARD CONTAINER */}
+          {/* 2.5D BOARD CONTAINER (BattlefieldRoot) */}
           <div 
-            className={`relative w-full h-full drop-shadow-2xl transition-transform duration-700 ease-in-out`}
+            className={`relative w-full h-full transition-transform duration-700 ease-in-out`}
             style={{ 
-              transform: `perspective(1200px) translate3d(${camera.x}px, ${camera.y}px, 0) scale(${camera.zoom}) rotateX(${camera.pitch}deg) rotateZ(${camera.yaw}deg)`, 
+              transform: `perspective(1200px) translate3d(${camera.x + BATTLEFIELD_ROOT_OFFSET.x}px, ${camera.y + BATTLEFIELD_ROOT_OFFSET.y}px, 0) scale(${camera.zoom}) rotateX(${camera.pitch}deg) rotateZ(${camera.yaw}deg)`, 
               transformStyle: 'preserve-3d',
               pointerEvents: 'auto'
             }}
@@ -300,46 +308,285 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
             </svg>
 
             {/* 3D OBJECTS LAYER (ENVIRONMENT & UNITS) */}
-            <div className="absolute inset-0 z-20 pointer-events-none transform-style-3d">
+            <div className="absolute inset-0 z-20 pointer-events-none" style={{ transformStyle: "preserve-3d" }}>
               
-              {/* TERRAIN FEATURES */}
+              {/* TERRAIN FEATURES (90° Upright Perpendicular Models) */}
               {BACH_DANG_HEXES.map(tile => {
-                const { x, y } = hexToPixel(tile.col, tile.row);
                 if (tile.terrain !== 'forest' && tile.terrain !== 'hill' && tile.terrain !== 'stakes') return null;
+                const { x, y, surfaceZ } = getHexSurfacePosition(tile.col, tile.row, tile.terrain);
                 return (
                   <div
                     key={`env-${tile.col}-${tile.row}`}
-                    className="absolute flex items-end justify-center pointer-events-none"
-                    style={{ left: x, top: y, transform: `translate(-50%, -85%) rotateZ(${-camera.yaw}deg) rotateX(${-camera.pitch}deg)`, transformOrigin: 'bottom center', zIndex: Math.round(y) }}
+                    className="absolute pointer-events-none"
+                    style={{ 
+                      left: x, 
+                      top: y, 
+                      width: 0, 
+                      height: 0, 
+                      transform: surfaceZ !== 0 ? `translateZ(${surfaceZ}px)` : undefined,
+                      transformStyle: 'preserve-3d', 
+                      zIndex: Math.round(y) 
+                    }}
                   >
-                    {tile.terrain === 'forest' && (
-                      <div className="relative flex items-end justify-center text-4xl filter drop-shadow-2xl brightness-90 saturate-50">
-                        <span className="absolute -ml-8 mb-1 scale-75 opacity-90">🌲</span>
-                        <span className="absolute ml-8 -mb-2 scale-90 opacity-95">🌲</span>
-                        <span className="relative z-10 scale-110">🌲</span>
-                      </div>
-                    )}
-                    {tile.terrain === 'hill' && (
-                      <div className="text-6xl filter drop-shadow-[0_10px_10px_rgba(0,0,0,0.8)] brightness-75 sepia-[0.4] scale-[1.3]">⛰️</div>
-                    )}
-                    {tile.terrain === 'stakes' && (
-                      <div className={`flex items-end gap-1.5 transition-opacity duration-1000 ${tideTurnsLeft <= 1 ? 'opacity-100' : 'opacity-20'} drop-shadow-xl`}>
-                        {[1, 2, 3].map(i => (
-                          <div key={i} className="w-1.5 h-12 bg-gradient-to-b from-[#a37637] to-[#3a2613] rounded-t shadow-black" style={{ transform: `rotate(${(i-2)*12}deg) translateY(${Math.abs(i-2)*5}px)` }} />
-                        ))}
-                      </div>
-                    )}
+                    {/* Ground Contact Shadow (Flat on the terrain) */}
+                    <div 
+                      className="absolute pointer-events-none"
+                      style={{ 
+                        width: tile.terrain === 'forest' ? 52 : tile.terrain === 'hill' ? 58 : 36,
+                        height: 22,
+                        left: tile.terrain === 'forest' ? -26 : tile.terrain === 'hill' ? -29 : -18,
+                        top: -11,
+                        borderRadius: '50%',
+                        background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 50%, transparent 80%)',
+                      }} 
+                    />
+
+                    {/* Upright Object (90° Perpendicular to Ground) */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        transformOrigin: '50% 100%', // Pivot anchored at base on ground
+                        transform: `rotateZ(${-camera.yaw}deg) rotateX(-90deg) scale(1.25)`,
+                        transformStyle: 'preserve-3d',
+                      }}
+                    >
+                      {tile.terrain === 'forest' && (
+                        <div className="relative flex items-end justify-center text-4xl select-none -translate-y-2" style={{ transformStyle: 'preserve-3d' }}>
+                          <span className="absolute -ml-7 mb-1 scale-75 opacity-90">🌲</span>
+                          <span className="absolute ml-7 -mb-2 scale-90 opacity-95">🌲</span>
+                          <span className="relative z-10 scale-105">🌲</span>
+                        </div>
+                      )}
+                      {tile.terrain === 'hill' && (
+                        <div className="text-5xl select-none -translate-y-2" style={{ transformStyle: 'preserve-3d' }}>
+                          ⛰️
+                        </div>
+                      )}
+                      {tile.terrain === 'stakes' && (
+                        <div 
+                          className={`flex items-end gap-1.5 transition-opacity duration-1000 ${tideTurnsLeft <= 1 ? 'opacity-100' : 'opacity-30'} -translate-y-1`} 
+                          style={{ transformStyle: 'preserve-3d' }}
+                        >
+                          {[1, 2, 3].map(i => (
+                            <div 
+                              key={i} 
+                              className="w-1.5 h-12 bg-gradient-to-b from-[#b3823d] to-[#3a2613] rounded-t border-t border-amber-300/40" 
+                              style={{ transform: `rotate(${(i-2)*8}deg) translateY(${Math.abs(i-2)*4}px)` }} 
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )
+                );
               })}
+
+              {/* REAR BASE CAMPS (2.5D / 3D Upright Headquarters) */}
+              {/* 1. Đại Việt Royal Base Camp (West Rear at 0, 3) */}
+              {(() => {
+                const { x, y, surfaceZ } = getHexSurfacePosition(0, 3, 'fort');
+                return (
+                  <div
+                    key="base-player"
+                    className="absolute pointer-events-none"
+                    style={{ left: x, top: y, width: 0, height: 0, transform: `translateZ(${surfaceZ}px)`, transformStyle: 'preserve-3d', zIndex: Math.round(y) - 20 }}
+                  >
+                    {/* Ground Contact Shadow */}
+                    <div 
+                      className="absolute pointer-events-none"
+                      style={{ 
+                        width: 120, height: 48, left: -60, top: -24,
+                        borderRadius: '50%',
+                        background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.25) 55%, transparent 80%)'
+                      }} 
+                    />
+
+                    {/* Upright Camp Structure (90° Perpendicular) */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        width: 110,
+                        height: 100,
+                        marginLeft: -55,
+                        marginTop: -100,
+                        transformOrigin: '50% 100%',
+                        transform: `rotateZ(${-camera.yaw}deg) rotateX(-90deg) scale(1.3)`,
+                        transformStyle: 'preserve-3d'
+                      }}
+                    >
+                      <div className="relative w-full h-full flex flex-col items-center justify-end select-none" style={{ transformStyle: 'preserve-3d' }}>
+                        
+                        {/* Main Headquarters Pavilion (Mái Đao Cổ Truyền) */}
+                        <div className="relative w-24 h-20 flex flex-col items-center" style={{ transformStyle: 'preserve-3d' }}>
+                          {/* Top Roof Crest */}
+                          <div className="w-28 h-6 bg-gradient-to-r from-[#991b1b] via-[#b91c1c] to-[#991b1b] rounded-t-xl border-t-2 border-[#fbbf24] shadow-md flex items-center justify-center">
+                            <span className="text-[7px] text-[#fef08a] font-serif font-black tracking-widest uppercase">ĐẠI VIỆT</span>
+                          </div>
+                          {/* Second Tier Curved Eaves */}
+                          <div className="w-24 h-4 bg-[#78350f] border-b border-[#f59e0b] shadow-inner -mt-1" />
+                          
+                          {/* Wooden Pillars & Main Hall */}
+                          <div className="w-20 h-11 bg-gradient-to-b from-[#451a03] to-[#1c0a00] border-x-4 border-[#78350f] flex flex-col items-center justify-between p-1">
+                            <div className="w-6 h-6 rounded-full border border-[#fbbf24] bg-[#991b1b] flex items-center justify-center text-[10px] text-[#fef08a] font-serif font-bold">
+                              陳
+                            </div>
+                            <div className="w-full flex justify-between px-1 text-[8px] text-amber-200">
+                              <span>🏮</span><span>🏮</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Left Imperial Banner (Cờ Tiết Chế) */}
+                        <div className="absolute -left-3 bottom-0 flex flex-col items-center" style={{ transform: 'translateZ(8px)' }}>
+                          <div className="w-1 h-24 bg-[#78350f]" />
+                          <div className="absolute top-1 left-1 w-7 h-16 bg-blue-700 border-2 border-[#fbbf24] rounded-br flex flex-col items-center justify-center shadow-lg animate-[pulse_2.5s_infinite]">
+                            <span className="text-[7px] text-[#fef08a] font-serif font-black leading-tight">SÁT</span>
+                            <span className="text-[7px] text-[#fef08a] font-serif font-black leading-tight">THÁT</span>
+                          </div>
+                        </div>
+
+                        {/* Right Imperial Banner (Cờ Hiệu Hoàng Gia) */}
+                        <div className="absolute -right-3 bottom-0 flex flex-col items-center" style={{ transform: 'translateZ(8px)' }}>
+                          <div className="w-1 h-24 bg-[#78350f]" />
+                          <div className="absolute top-1 right-1 w-7 h-16 bg-red-700 border-2 border-[#fbbf24] rounded-bl flex flex-col items-center justify-center shadow-lg animate-[pulse_2s_infinite]">
+                            <span className="text-[7px] text-[#fef08a] font-serif font-black leading-tight">QUÂN</span>
+                            <span className="text-[7px] text-[#fef08a] font-serif font-black leading-tight">DOANH</span>
+                          </div>
+                        </div>
+
+                        {/* Palisade Wooden Barricade & Campfire */}
+                        <div className="absolute -bottom-1 w-28 flex items-end justify-between px-2" style={{ transform: 'translateZ(14px)' }}>
+                          <div className="flex gap-0.5">
+                            {[1, 2, 3, 4].map(i => (
+                              <div key={i} className="w-1.5 h-6 bg-gradient-to-t from-[#451a03] to-[#78350f] rounded-t border-t border-amber-500" />
+                            ))}
+                          </div>
+                          {/* Campfire */}
+                          <div className="text-sm animate-[pulse_1s_infinite]">🔥</div>
+                          <div className="flex gap-0.5">
+                            {[1, 2, 3, 4].map(i => (
+                              <div key={i} className="w-1.5 h-6 bg-gradient-to-t from-[#451a03] to-[#78350f] rounded-t border-t border-amber-500" />
+                            ))}
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 2. Mông Nguyên Warlord Base Camp (East Rear at 11, 3) */}
+              {(() => {
+                const { x, y, surfaceZ } = getHexSurfacePosition(11, 3, 'fort');
+                return (
+                  <div
+                    key="base-enemy"
+                    className="absolute pointer-events-none"
+                    style={{ left: x, top: y, width: 0, height: 0, transform: `translateZ(${surfaceZ}px)`, transformStyle: 'preserve-3d', zIndex: Math.round(y) - 20 }}
+                  >
+                    {/* Ground Contact Shadow */}
+                    <div 
+                      className="absolute pointer-events-none"
+                      style={{ 
+                        width: 120, height: 48, left: -60, top: -24,
+                        borderRadius: '50%',
+                        background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.25) 55%, transparent 80%)'
+                      }} 
+                    />
+
+                    {/* Upright Camp Structure (90° Perpendicular) */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        width: 110,
+                        height: 100,
+                        marginLeft: -55,
+                        marginTop: -100,
+                        transformOrigin: '50% 100%',
+                        transform: `rotateZ(${-camera.yaw}deg) rotateX(-90deg) scale(1.3)`,
+                        transformStyle: 'preserve-3d'
+                      }}
+                    >
+                      <div className="relative w-full h-full flex flex-col items-center justify-end select-none" style={{ transformStyle: 'preserve-3d' }}>
+                        
+                        {/* Main Headquarters Yurt (Đại Hãn Trướng Mông Cổ) */}
+                        <div className="relative w-24 h-20 flex flex-col items-center" style={{ transformStyle: 'preserve-3d' }}>
+                          {/* Top Crown Wheel / Vent (Toono) */}
+                          <div className="w-8 h-3 bg-[#b45309] rounded-full border border-amber-300 shadow-sm flex items-center justify-center">
+                            <span className="text-[7px]">⚡</span>
+                          </div>
+                          {/* Round Felt Dome Roof */}
+                          <div className="w-26 h-9 bg-gradient-to-b from-[#f1f5f9] via-[#e2e8f0] to-[#cbd5e1] rounded-t-[50%] border-t-2 border-[#b45309] shadow-md flex items-center justify-center -mt-1">
+                            <div className="w-20 h-0.5 bg-[#78350f] opacity-40" />
+                          </div>
+                          
+                          {/* Felt Wall Cylinder & Ornate Entrance */}
+                          <div className="w-22 h-9 bg-[#e2e8f0] border-x-4 border-[#334155] border-b-2 border-[#1e293b] flex flex-col items-center justify-end p-0.5">
+                            <div className="w-8 h-8 bg-gradient-to-b from-[#881337] to-[#4c0519] border-t-2 border-x-2 border-amber-400 rounded-t flex items-center justify-center text-[10px] text-amber-300 font-bold">
+                              元
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Left Mongol Tug Banner (Cờ Đuôi Ngựa) */}
+                        <div className="absolute -left-3 bottom-0 flex flex-col items-center" style={{ transform: 'translateZ(8px)' }}>
+                          <div className="w-1 h-24 bg-[#1e293b]" />
+                          <div className="absolute top-1 left-1 w-7 h-16 bg-[#881337] border-2 border-red-500 rounded-br flex flex-col items-center justify-center shadow-lg animate-[pulse_2.2s_infinite]">
+                            <span className="text-[7px] text-amber-200 font-serif font-black leading-tight">MÔNG</span>
+                            <span className="text-[7px] text-amber-200 font-serif font-black leading-tight">CỔ</span>
+                          </div>
+                        </div>
+
+                        {/* Right Mongol Standard Banner */}
+                        <div className="absolute -right-3 bottom-0 flex flex-col items-center" style={{ transform: 'translateZ(8px)' }}>
+                          <div className="w-1 h-24 bg-[#1e293b]" />
+                          <div className="absolute top-1 right-1 w-7 h-16 bg-slate-900 border-2 border-amber-400 rounded-bl flex flex-col items-center justify-center shadow-lg animate-[pulse_2s_infinite]">
+                            <span className="text-[7px] text-amber-200 font-serif font-black leading-tight">NGUYÊN</span>
+                            <span className="text-[7px] text-amber-200 font-serif font-black leading-tight">TRƯỚNG</span>
+                          </div>
+                        </div>
+
+                        {/* Spiked Nomad Barricade & Campfire */}
+                        <div className="absolute -bottom-1 w-28 flex items-end justify-between px-2" style={{ transform: 'translateZ(14px)' }}>
+                          <div className="flex gap-0.5">
+                            {[1, 2, 3, 4].map(i => (
+                              <div key={i} className="w-1.5 h-6 bg-gradient-to-t from-[#1e293b] to-[#475569] rounded-t border-t border-red-500" />
+                            ))}
+                          </div>
+                          {/* Campfire */}
+                          <div className="text-sm animate-[pulse_1s_infinite]">🔥</div>
+                          <div className="flex gap-0.5">
+                            {[1, 2, 3, 4].map(i => (
+                              <div key={i} className="w-1.5 h-6 bg-gradient-to-t from-[#1e293b] to-[#475569] rounded-t border-t border-red-500" />
+                            ))}
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* UNITS */}
               {units.map((unit) => {
                 const isSelected = unit.unit_id === selectedUnitId;
+                const tile = hexAt(unit.col, unit.row);
+                const surfaceZ = getHexSurfaceHeight(tile?.terrain);
                 return (
-                  <UnitEntity cameraPitch={camera.pitch} cameraYaw={camera.yaw}
+                  <UnitEntity 
                     key={unit.unit_id}
+                    cameraPitch={camera.pitch} 
+                    cameraYaw={camera.yaw}
                     unit={unit}
+                    surfaceZ={surfaceZ}
                     isSelected={isSelected}
                     onSelect={() => handleSelectHex(unit.col, unit.row)}
                     actionEvents={actionEvents}
@@ -375,19 +622,27 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
 
       {/* Top HUD */}
       <div className="absolute top-0 left-0 right-0 p-4 pointer-events-none flex justify-between items-start z-40">
-        <div className="pointer-events-auto flex items-center bg-gradient-to-r from-[#1a0f0a]/90 to-black/80 border border-[#8b744f] rounded-full p-1.5 pr-6 backdrop-blur-md shadow-lg">
-           <div className="w-11 h-11 rounded-full border-2 border-[#C9A44C] overflow-hidden bg-blue-950 shrink-0">
-             {faction.image ? <img src={faction.image} alt="Faction" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-white font-serif font-bold">ĐV</div>}
-           </div>
-           <div className="ml-3">
-             <div className="text-[#C9A44C] font-bold font-serif text-sm uppercase leading-none tracking-wide">{faction.name || 'Đại Việt'}</div>
-             <div className="flex items-center gap-2 mt-1">
-               <div className="w-16 h-1.5 bg-black/50 rounded-full overflow-hidden">
-                 <div className="h-full bg-emerald-500" style={{ width: `${(playerPower/maxPlayerPower)*100}%` }} />
-               </div>
-               <span className="text-[10px] text-white font-mono">{playerPower}</span>
+        <div className="flex flex-col gap-2 pointer-events-auto">
+          <div className="flex items-center bg-gradient-to-r from-[#1a0f0a]/90 to-black/80 border border-[#8b744f] rounded-full p-1.5 pr-6 backdrop-blur-md shadow-lg">
+             <div className="w-11 h-11 rounded-full border-2 border-[#C9A44C] overflow-hidden bg-blue-950 shrink-0">
+               {faction.image ? <img src={faction.image} alt="Faction" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-white font-serif font-bold">ĐV</div>}
              </div>
-           </div>
+             <div className="ml-3">
+               <div className="text-[#C9A44C] font-bold font-serif text-sm uppercase leading-none tracking-wide">{faction.name || 'Đại Việt'}</div>
+               <div className="flex items-center gap-2 mt-1">
+                 <div className="w-16 h-1.5 bg-black/50 rounded-full overflow-hidden">
+                   <div className="h-full bg-emerald-500" style={{ width: `${(playerPower/maxPlayerPower)*100}%` }} />
+                 </div>
+                 <span className="text-[10px] text-white font-mono">{playerPower}</span>
+               </div>
+             </div>
+          </div>
+          <button 
+            onClick={onExitBattle} 
+            className="self-start flex items-center gap-1.5 bg-[#0a151e]/85 hover:bg-[#132838] border border-[#8b744f]/60 px-3.5 py-1.5 rounded-full text-[10px] text-[#F3E5AB] font-serif font-bold uppercase tracking-widest transition-all backdrop-blur-md shadow-md hover:scale-105 active:scale-95"
+          >
+            <ArrowLeft className="w-3 h-3 text-[#C9A44C]" /> Rút lui
+          </button>
         </div>
 
         <div className="pointer-events-auto flex flex-col items-center bg-gradient-to-b from-[#1a0f0a]/90 to-black/80 border-b border-x border-[#8b744f] rounded-b-2xl px-10 py-3 -mt-4 shadow-xl backdrop-blur-md">
@@ -423,25 +678,174 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
       {/* Bottom HUD */}
       <div className="absolute bottom-0 left-0 right-0 p-4 pointer-events-none flex justify-between items-end z-40">
         
-        <div className="flex flex-col gap-3 pointer-events-auto w-64">
-          <button onClick={onExitBattle} className="self-start flex items-center gap-1.5 bg-black/60 hover:bg-black/80 border border-slate-700 px-3 py-1.5 rounded-full text-[10px] text-slate-300 uppercase tracking-widest transition-colors backdrop-blur-sm">
-            <ArrowLeft className="w-3 h-3" /> Rút lui
-          </button>
-          <div className="bg-gradient-to-br from-[#1c140f]/95 to-black/95 border border-[#8b744f] rounded-xl overflow-hidden shadow-xl backdrop-blur-md">
-            <div className="bg-[#2a1810] px-3 py-1.5 border-b border-[#8b744f]/50 flex items-center gap-1.5">
-              <MousePointer2 className="w-3.5 h-3.5 text-[#C9A44C]" />
-              <span className="text-[10px] uppercase text-[#C9A44C] font-bold tracking-wider">Thông Tin</span>
+        {/* BOTTOM-LEFT: LỢI THẾ & NHẬT KÝ CHIẾN TRƯỜNG */}
+        <div 
+          className="pointer-events-auto w-[290px] rounded-xl p-3.5 shadow-2xl transition-all"
+          style={{
+            background: 'rgba(5, 10, 15, 0.40)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(180, 140, 60, 0.45)',
+          }}
+        >
+          {/* Header & Percentage */}
+          <div className="flex justify-between items-center pb-2 border-b border-[#8b744f]/30">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs">⚖</span>
+              <span className="text-[11px] uppercase text-[#C9A44C] font-serif font-bold tracking-wider">Lợi Thế</span>
+            </div>
+            <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
+              +{Math.round((playerPower / (playerPower + enemyPower + 1)) * 100)}%
+            </span>
+          </div>
+
+          {/* Dual Ratio Bar: Đại Việt vs Mông Cổ */}
+          <div className="w-full h-2 bg-black/60 rounded-full overflow-hidden flex border border-[#8b744f]/30 my-2.5">
+            <div 
+              className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-300" 
+              style={{ width: `${Math.round((playerPower / (playerPower + enemyPower + 1)) * 100)}%` }} 
+            />
+            <div 
+              className="h-full bg-gradient-to-r from-red-500 to-red-700 transition-all duration-300" 
+              style={{ width: `${100 - Math.round((playerPower / (playerPower + enemyPower + 1)) * 100)}%` }} 
+            />
+          </div>
+
+          {/* Subheader: Nhật ký chiến trường */}
+          <div className="flex items-center justify-between text-[9px] uppercase text-slate-400 tracking-widest font-semibold pb-1 border-b border-[#8b744f]/20 mb-1.5">
+            <span>Nhật ký chiến trường</span>
+            <span className="text-[8px] text-slate-500 font-mono">LIVE</span>
+          </div>
+
+          {/* Scrollable battle log */}
+          <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
+            {log.length === 0 ? (
+              <div className="text-[10px] text-slate-500 italic py-1">Trận chiến vừa bắt đầu...</div>
+            ) : (
+              log.map((entry, i) => (
+                <div 
+                  key={i} 
+                  className={`text-[10px] leading-tight transition-opacity ${
+                    i === 0 ? 'text-[#F3E5AB] font-medium' : 'text-slate-400 opacity-80'
+                  }`}
+                >
+                  {entry}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* BOTTOM-CENTER: AUTO BATTLE CONTROLS & MANUAL ACTIONS */}
+        <div className="pointer-events-auto flex flex-col items-center justify-end pb-1">
+          <div className="flex bg-[#0c1a24]/90 border border-[#8b744f] rounded-full p-1.5 shadow-2xl backdrop-blur-md gap-1">
+             <button 
+               onClick={() => setIsAuto(!isAuto)} 
+               className={`px-4 py-2 rounded-full text-xs font-bold font-serif uppercase tracking-widest transition-colors ${
+                 isAuto 
+                   ? 'bg-gradient-to-r from-emerald-700 to-emerald-900 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]' 
+                   : 'bg-black/50 text-slate-400 hover:text-white'
+               }`}
+             >
+                AUTO {isAuto && '●'}
+             </button>
+             
+             <div className="w-px bg-[#8b744f]/50 mx-1 my-1" />
+             
+             <select 
+               value={strategy}
+               onChange={e => setStrategy(e.target.value as any)}
+               className="appearance-none bg-black/50 hover:bg-black text-[#C9A44C] border border-transparent hover:border-[#8b744f]/50 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider text-center cursor-pointer outline-none"
+             >
+               <option value="balanced">⚖ Cân Bằng</option>
+               <option value="aggressive">⚔ Tấn Công</option>
+               <option value="defensive">🛡 Phòng Thủ</option>
+             </select>
+
+             <div className="w-px bg-[#8b744f]/50 mx-1 my-1" />
+
+             {[1, 2, 4].map(s => (
+               <button 
+                 key={s} 
+                 onClick={() => setBattleSpeed(s)} 
+                 className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                   battleSpeed === s 
+                     ? 'bg-[#8b5e24] text-white border border-[#C9A44C]' 
+                     : 'bg-black/50 text-slate-400 hover:text-white border border-transparent hover:border-[#8b744f]/50'
+                 }`}
+               >
+                 ×{s}
+               </button>
+             ))}
+
+             <button 
+               onClick={() => setIsPaused(!isPaused)} 
+               className={`w-10 h-10 ml-1 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                 isPaused 
+                   ? 'bg-red-800 text-white border border-red-400 animate-pulse' 
+                   : 'bg-black/50 text-slate-400 hover:text-white border border-transparent hover:border-[#8b744f]/50'
+               }`}
+             >
+               ⏸
+             </button>
+          </div>
+          
+          {!isAuto && selectedUnit && selectedUnit.side === 'player' && turnSide === 'player' && !battleResult && (
+             <div className="flex gap-2 mt-3 animate-in slide-in-from-bottom-2">
+               {ACTIONS.map(action => {
+                  const isActive = activeAction === action.key;
+                  return (
+                    <button 
+                      key={action.key} 
+                      onClick={() => handleAction(action.key)} 
+                      className={`px-4 py-1.5 rounded text-[10px] uppercase font-bold flex items-center gap-1.5 border transition-colors ${
+                        isActive 
+                          ? 'bg-[#8b5e24] text-white border-[#C9A44C]' 
+                          : 'bg-black/80 text-slate-300 border-slate-700 hover:bg-slate-800'
+                      }`}
+                    >
+                      {action.label}
+                    </button>
+                  );
+               })}
+               <button onClick={advanceTurn} className="px-4 py-1.5 rounded text-[10px] uppercase font-bold border border-slate-700 bg-black/60 text-slate-400 hover:text-white hover:bg-slate-800 ml-2">
+                 Qua Lượt
+               </button>
+             </div>
+          )}
+        </div>
+
+        {/* BOTTOM-RIGHT: THÔNG TIN (SELECTED UNIT & HEX) + BATTLE SETTLEMENT */}
+        <div className="pointer-events-auto flex flex-col items-end gap-3 w-64">
+          <div className="bg-gradient-to-br from-[#1c140f]/95 to-black/95 border border-[#8b744f] rounded-xl overflow-hidden shadow-xl backdrop-blur-md w-full">
+            <div className="bg-[#2a1810] px-3 py-1.5 border-b border-[#8b744f]/50 flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <MousePointer2 className="w-3.5 h-3.5 text-[#C9A44C]" />
+                <span className="text-[10px] uppercase text-[#C9A44C] font-bold tracking-wider">Thông Tin</span>
+              </div>
+              {selectedUnit && (
+                <span className={`text-[9px] px-1.5 py-0.2 rounded font-mono ${selectedUnit.side === 'player' ? 'text-blue-300 bg-blue-950/80 border border-blue-800' : 'text-red-300 bg-red-950/80 border border-red-800'}`}>
+                  {selectedUnit.side === 'player' ? 'Đại Việt' : 'Mông Cổ'}
+                </span>
+              )}
             </div>
             <div className="p-3">
               {selectedUnit ? (
                 <>
                   <div className="flex gap-3 items-center mb-3">
                     <div className={`w-12 h-12 rounded flex items-center justify-center border-2 ${selectedUnit.side === 'player' ? 'border-blue-500/50 bg-blue-900/30' : 'border-red-500/50 bg-red-900/30'} shrink-0`}>
-                      <span className="text-xl">{selectedUnit.icon === 'spear' ? '⚔' : selectedUnit.icon === 'archer' ? '🏹' : selectedUnit.icon === 'elephant' ? '🐘' : '🐎'}</span>
+                      <span className="text-xl">
+                        {selectedUnit.icon === 'commander' ? '👑' : selectedUnit.icon === 'spear' ? '⚔' : selectedUnit.icon === 'archer' ? '🏹' : selectedUnit.icon === 'elephant' ? '🐘' : '🐎'}
+                      </span>
                     </div>
                     <div>
-                      <div className="font-serif font-bold text-white text-sm leading-tight">{selectedUnit.name}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">{selectedUnit.side === 'player' ? 'Đại Việt' : 'Địch'} • Binh chủng</div>
+                      <div className="font-serif font-bold text-white text-sm leading-tight flex items-center gap-1">
+                        {selectedUnit.name}
+                        {selectedUnit.is_commander && <span className="text-[10px] text-amber-300">👑</span>}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {selectedUnit.is_commander ? 'Chủ Tướng Chỉ Huy' : `${selectedUnit.side === 'player' ? 'Đại Việt' : 'Địch'} • Binh chủng`}
+                      </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-[10px]">
@@ -461,65 +865,6 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                 {selectedTile.effect && <div className="text-[9px] text-[#C9A44C] mt-0.5 leading-tight">{selectedTile.effect}</div>}
               </div>
             )}
-          </div>
-        </div>
-
-        <div className="pointer-events-auto flex flex-col items-center justify-end pb-4">
-          <div className="flex bg-[#0c1a24]/90 border border-[#8b744f] rounded-full p-1.5 shadow-2xl backdrop-blur-md gap-1">
-             <button onClick={() => setIsAuto(!isAuto)} className={`px-4 py-2 rounded-full text-xs font-bold font-serif uppercase tracking-widest transition-colors ${isAuto ? 'bg-gradient-to-r from-emerald-700 to-emerald-900 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-black/50 text-slate-400 hover:text-white'}`}>
-                AUTO {isAuto && '●'}
-             </button>
-             
-             <div className="w-px bg-[#8b744f]/50 mx-1 my-1" />
-             
-             <select 
-               value={strategy}
-               onChange={e => setStrategy(e.target.value as any)}
-               className="appearance-none bg-black/50 hover:bg-black text-[#C9A44C] border border-transparent hover:border-[#8b744f]/50 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider text-center cursor-pointer outline-none"
-             >
-               <option value="balanced">⚖ Cân Bằng</option>
-               <option value="aggressive">⚔ Tấn Công</option>
-               <option value="defensive">🛡 Phòng Thủ</option>
-             </select>
-
-             <div className="w-px bg-[#8b744f]/50 mx-1 my-1" />
-
-             {[1, 2, 4].map(s => (
-               <button key={s} onClick={() => setBattleSpeed(s)} className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${battleSpeed === s ? 'bg-[#8b5e24] text-white border border-[#C9A44C]' : 'bg-black/50 text-slate-400 hover:text-white border border-transparent hover:border-[#8b744f]/50'}`}>
-                 ×{s}
-               </button>
-             ))}
-
-             <button onClick={() => setIsPaused(!isPaused)} className={`w-10 h-10 ml-1 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${isPaused ? 'bg-red-800 text-white border border-red-400 animate-pulse' : 'bg-black/50 text-slate-400 hover:text-white border border-transparent hover:border-[#8b744f]/50'}`}>
-               ⏸
-             </button>
-          </div>
-          
-          {!isAuto && selectedUnit && selectedUnit.side === 'player' && turnSide === 'player' && !battleResult && (
-             <div className="flex gap-2 mt-4 animate-in slide-in-from-bottom-2">
-               {ACTIONS.map(action => {
-                  const isActive = activeAction === action.key;
-                  return (
-                    <button key={action.key} onClick={() => handleAction(action.key)} className={`px-4 py-1.5 rounded text-[10px] uppercase font-bold flex items-center gap-1.5 border transition-colors ${isActive ? 'bg-[#8b5e24] text-white border-[#C9A44C]' : 'bg-black/80 text-slate-300 border-slate-700 hover:bg-slate-800'}`}>
-                      {action.label}
-                    </button>
-                  )
-               })}
-               <button onClick={advanceTurn} className="px-4 py-1.5 rounded text-[10px] uppercase font-bold border border-slate-700 bg-black/60 text-slate-400 hover:text-white hover:bg-slate-800 ml-2">Qua Lượt</button>
-             </div>
-          )}
-        </div>
-
-        <div className="flex flex-col items-end gap-3 pointer-events-auto w-64">
-          <div className="bg-gradient-to-br from-[#1c140f]/95 to-black/95 border border-[#8b744f] rounded-xl p-3 w-full backdrop-blur-md shadow-xl">
-            <div className="flex justify-between items-center mb-2 border-b border-[#8b744f]/30 pb-2">
-              <span className="text-[10px] uppercase text-[#C9A44C] font-bold tracking-wider">Lợi Thế</span>
-              <span className="text-xs font-mono font-bold text-emerald-400">+{Math.round((playerPower / (playerPower + enemyPower + 1)) * 100)}%</span>
-            </div>
-            <div className="text-[9px] uppercase text-slate-500 tracking-widest mb-1.5">Nhật ký chiến trường</div>
-            <div className="space-y-1 h-20 overflow-hidden flex flex-col justify-end">
-              {log.slice().reverse().map((entry, i) => <div key={i} className={`text-[10px] leading-tight ${i === log.length - 1 ? 'text-white font-bold' : 'text-slate-500'}`}>{entry}</div>)}
-            </div>
           </div>
 
           {battleResult || settlementError ? (

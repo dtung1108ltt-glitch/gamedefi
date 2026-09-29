@@ -70,55 +70,58 @@ function buildBachDangHexes(): HexTile[] {
       let label: string | undefined;
       let effect: string | undefined;
 
-      if (col <= 2) {
-        // Quân ta bố trận trên gò cao phía Tây
+      if (col === 0 && row === 3) {
+        // Căn cứ doanh trại Đại Việt
         zone = 'ally';
-        terrain = row % 3 === 0 ? 'hill' : 'plain';
+        terrain = 'fort';
+        label = 'Doanh trại Đại Việt';
+        effect = 'Hậu cứ & Tổng hành dinh';
+      } else if (col === 11 && row === 3) {
+        // Căn cứ doanh trại Mông Nguyên
+        zone = 'enemy';
+        terrain = 'fort';
+        label = 'Doanh trại Nguyên Triều';
+        effect = 'Hậu cứ & Đại Hãn trướng';
+      } else if (col <= 2) {
+        // Hậu quân & cánh quân Đại Việt
+        zone = 'ally';
+        terrain = (col === 1 && (row === 0 || row === 6)) ? 'forest' : (col === 2 && row === 0 ? 'hill' : 'plain');
       } else if (col === 3 || col === 4) {
+        // Tiền duyên quân Đại Việt
         zone = 'ally';
         terrain = 'plain';
-      } else if (col >= 5 && col <= 6) {
-        // Vùng tiếp xúc — bãi lầy & rừng ngập mặn
-        zone = row < 4 ? 'ally' : 'enemy';
-        terrain = row % 2 === 0 ? 'forest' : 'mud';
-      } else if (col >= 7 && col <= 8) {
-        zone = 'enemy';
-        terrain = 'mud';
-      } else {
-        // Sông Bạch Đằng phía Đông
+      } else if (col === 5 || col === 6) {
+        // Chiến tuyến trung tâm — Sông Bạch Đằng & bãi cọc ngầm
         zone = 'neutral';
-        terrain = 'river';
+        if ((col === 5 && row === 2) || (col === 6 && row === 4)) {
+          terrain = 'stakes';
+          label = 'Bãi cọc ngầm';
+          effect = 'Sát thương & cản trở thuyền chiến';
+        } else if (col === 6 && row === 6) {
+          terrain = 'forest';
+          label = 'Rừng ngập mặn';
+          effect = 'Ẩn nấp phục kích';
+        } else if (row === 1 || row === 3 || row === 5) {
+          terrain = 'river';
+          label = 'Dòng sông Bạch Đằng';
+        } else {
+          terrain = 'mud';
+          label = 'Bãi lầy phù sa';
+          effect = 'Giảm tốc độ di chuyển';
+        }
+      } else if (col === 7 || col === 8) {
+        // Tiền duyên quân Mông Nguyên
+        zone = 'enemy';
+        terrain = 'plain';
+      } else {
+        // Hậu quân & cánh quân Mông Nguyên
+        zone = 'enemy';
+        terrain = (col === 10 && (row === 0 || row === 6)) ? 'forest' : (col === 9 && row === 6 ? 'hill' : 'plain');
       }
 
       tiles.push({ col, row, terrain, zone, label, effect });
     }
   }
-
-  // Ô đặc biệt: gò cao đặt cung thủ (Terrain Advantage Indicator trong ảnh mẫu)
-  const hill = tiles.find(t => t.col === 1 && t.row === 3)!;
-  hill.terrain = 'hill';
-  hill.zone = 'ally';
-  hill.label = 'Gò cao';
-  hill.effect = '+20% tầm bắn cung thủ';
-
-  // Ô rừng tre / rừng ngập mặn (ẩn nấp)
-  const forest = tiles.find(t => t.col === 6 && t.row === 5)!;
-  forest.terrain = 'forest';
-  forest.label = 'Rừng ngập mặn';
-  forest.effect = 'Ẩn nấp và phục kích';
-
-  // Ô bãi lầy (giảm tốc độ di chuyển)
-  const mud = tiles.find(t => t.col === 7 && t.row === 4)!;
-  mud.terrain = 'mud';
-  mud.label = 'Bãi lầy triều';
-  mud.effect = 'Giảm tốc độ di chuyển';
-
-  // Ô cọc ngầm — hiểm hoạ cho thuyền địch
-  const stakes = tiles.find(t => t.col === 9 && t.row === 2)!;
-  stakes.terrain = 'stakes';
-  stakes.zone = 'neutral';
-  stakes.label = 'Cọc ngầm Bạch Đằng';
-  stakes.effect = 'Cản thuyền địch';
 
   return tiles;
 }
@@ -126,59 +129,122 @@ function buildBachDangHexes(): HexTile[] {
 export const BACH_DANG_HEXES: HexTile[] = buildBachDangHexes();
 
 export const BACH_DANG_UNITS: BattleUnit[] = [
+  // ==========================================
+  // QUÂN ĐỘI ĐẠI VIỆT (ALLIED ARMY - 6 UNITS)
+  // ==========================================
+  {
+    unit_id: 'p_cmd',
+    name: 'Trần Hưng Đạo',
+    side: 'player',
+    icon: 'commander',
+    is_commander: true,
+    col: 1,
+    row: 3,
+    stats: { at: 180, atk: 50, def: 46, asTk: 14, atf: 35, reg: 30 },
+  },
   {
     unit_id: 'p1',
-    name: 'Thương binh Trần',
+    name: 'Thương binh Đại Việt I',
     side: 'player',
     icon: 'spear',
-    col: 2,
-    row: 3,
-    stats: { at: 150, atk: 38, def: 39, asTk: 12, atf: 33, reg: 25 },
+    col: 3,
+    row: 2,
+    stats: { at: 130, atk: 38, def: 38, asTk: 12, atf: 30, reg: 20 },
   },
   {
     unit_id: 'p2',
-    name: 'Tượng binh Trần',
+    name: 'Tượng binh Tiên phong',
     side: 'player',
     icon: 'elephant',
-    col: 1,
-    row: 4,
-    stats: { at: 90, atk: 55, def: 48, asTk: 8, atf: 20, reg: 18 },
+    col: 3,
+    row: 3,
+    stats: { at: 160, atk: 52, def: 48, asTk: 8, atf: 25, reg: 22 },
   },
   {
     unit_id: 'p3',
-    name: 'Cung thủ Trần',
+    name: 'Thương binh Đại Việt II',
     side: 'player',
-    icon: 'archer',
-    col: 1,
-    row: 2,
-    stats: { at: 120, atk: 30, def: 22, asTk: 16, atf: 45, reg: 20 },
+    icon: 'spear',
+    col: 3,
+    row: 4,
+    stats: { at: 130, atk: 38, def: 38, asTk: 12, atf: 30, reg: 20 },
   },
   {
     unit_id: 'p4',
-    name: 'Thương binh Trần II',
+    name: 'Xạ thủ Bạch Đằng I',
     side: 'player',
-    icon: 'spear',
+    icon: 'archer',
+    col: 2,
+    row: 1,
+    stats: { at: 110, atk: 42, def: 24, asTk: 16, atf: 45, reg: 15 },
+  },
+  {
+    unit_id: 'p5',
+    name: 'Xạ thủ Bạch Đằng II',
+    side: 'player',
+    icon: 'archer',
     col: 2,
     row: 5,
-    stats: { at: 140, atk: 36, def: 37, asTk: 12, atf: 30, reg: 24 },
+    stats: { at: 110, atk: 42, def: 24, asTk: 16, atf: 45, reg: 15 },
+  },
+
+  // ==========================================
+  // QUÂN ĐỘI MÔNG NGUYÊN (ENEMY ARMY - 6 UNITS)
+  // ==========================================
+  {
+    unit_id: 'e_cmd',
+    name: 'Ô Mã Nhi',
+    side: 'enemy',
+    icon: 'commander',
+    is_commander: true,
+    col: 10,
+    row: 3,
+    stats: { at: 180, atk: 50, def: 46, asTk: 14, atf: 35, reg: 30 },
   },
   {
     unit_id: 'e1',
-    name: 'Kỵ binh Nguyên',
+    name: 'Thiết giáp Nguyên I',
     side: 'enemy',
-    icon: 'cavalry',
-    col: 6,
-    row: 3,
-    stats: { at: 130, atk: 44, def: 30, asTk: 18, atf: 28, reg: 15 },
+    icon: 'spear',
+    col: 8,
+    row: 2,
+    stats: { at: 130, atk: 38, def: 38, asTk: 12, atf: 30, reg: 20 },
   },
   {
     unit_id: 'e2',
-    name: 'Tiền quân Nguyên',
+    name: 'Thiết Kỵ Tiên phong',
+    side: 'enemy',
+    icon: 'cavalry',
+    col: 8,
+    row: 3,
+    stats: { at: 160, atk: 52, def: 48, asTk: 14, atf: 28, reg: 22 },
+  },
+  {
+    unit_id: 'e3',
+    name: 'Thiết giáp Nguyên II',
     side: 'enemy',
     icon: 'spear',
-    col: 7,
-    row: 2,
-    stats: { at: 110, atk: 34, def: 28, asTk: 14, atf: 22, reg: 16 },
+    col: 8,
+    row: 4,
+    stats: { at: 130, atk: 38, def: 38, asTk: 12, atf: 30, reg: 20 },
+  },
+  {
+    unit_id: 'e4',
+    name: 'Thần Tiễn Nguyên I',
+    side: 'enemy',
+    icon: 'archer',
+    col: 9,
+    row: 1,
+    stats: { at: 110, atk: 42, def: 24, asTk: 16, atf: 45, reg: 15 },
+  },
+  {
+    unit_id: 'e5',
+    name: 'Thần Tiễn Nguyên II',
+    side: 'enemy',
+    icon: 'archer',
+    col: 9,
+    row: 5,
+    stats: { at: 110, atk: 42, def: 24, asTk: 16, atf: 45, reg: 15 },
   },
 ];
 
