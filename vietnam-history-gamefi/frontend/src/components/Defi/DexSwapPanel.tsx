@@ -179,6 +179,10 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
 
   const signAndExecute = async () => {
     if (!order?.executable) return;
+    if (order.expires_at && Date.now() >= order.expires_at * 1000) {
+      setError('Báo giá đã hết hạn. Hãy lấy báo giá mới trước khi ký.');
+      return;
+    }
     onPlayDrum();
     setError(null);
     setExecution(null);
@@ -363,7 +367,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
               <span className={`min-w-0 break-all text-2xl font-semibold tabular-nums ${outputDisplay ? 'text-imperial-lightgold' : 'text-slate-500'}`}>
                 {outputDisplay || 'Chưa có báo giá'}
               </span>
-              {fromToken === 'SOL' ? <select value={toToken} onChange={(event) => { setToToken(event.target.value as DexTokenSymbol); clearQuote(); }} aria-label="Token nhận" className="min-h-11 rounded-lg border border-slate-700 bg-imperial-darkred/50 px-3 py-2 text-sm font-bold text-slate-300">{tokens.filter((token) => token.symbol !== 'SOL').map((token) => <option key={token.symbol} value={token.symbol}>{token.symbol}</option>)}</select> : <span className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300"><img src="/solana-token.svg" alt="" className="h-6 w-6 rounded-full" />SOL</span>}
+              {fromToken === 'SOL' ? <span className="inline-flex items-center gap-2"><img src={tokenLogo(toToken)!} alt="" className="h-6 w-6 rounded-full" /><select value={toToken} onChange={(event) => { setToToken(event.target.value as DexTokenSymbol); clearQuote(); }} aria-label="Token nhận" className="min-h-11 rounded-lg border border-slate-700 bg-imperial-darkred/50 px-3 py-2 text-sm font-bold text-slate-300">{tokens.filter((token) => token.symbol !== 'SOL').map((token) => <option key={token.symbol} value={token.symbol}>{token.symbol}</option>)}</select></span> : <span className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300"><img src="/solana-token.svg" alt="" className="h-6 w-6 rounded-full" />SOL</span>}
             </div>
           </div>
 
