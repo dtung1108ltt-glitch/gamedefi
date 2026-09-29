@@ -10,7 +10,7 @@ from app.dex.raydium_provider import RaydiumDexProvider
 def create_dex_provider(settings: Settings) -> DexProvider:
     if settings.solana_network == "mainnet-beta":
         return JupiterDexProvider(settings.jupiter_api_key, settings.jupiter_base_url)
-    if settings.solana_network == "devnet" and settings.raydium_pool_id:
+    if settings.solana_network == "devnet":
         return RaydiumDexProvider(settings)
     if settings.solana_network in {"localnet", "testnet"}:
         return MockDexProvider(Decimal(str(settings.dex_mock_sol_usdc_rate)))

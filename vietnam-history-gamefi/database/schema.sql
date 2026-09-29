@@ -205,7 +205,7 @@ CREATE TABLE dex_swaps (
 CREATE INDEX ix_dex_swaps_wallet_created ON dex_swaps (wallet, created_at DESC);
 CREATE INDEX ix_dex_swaps_reconcile ON dex_swaps (status, updated_at) WHERE status = 'pending_confirmation';
 
--- 13. Durable HKDV reward payout lifecycle (see migrations/002_reward_claims.sql)
+-- 13. Durable reward payout lifecycle (see migrations/002_reward_claims.sql)
 -- Phase 6: durable gameplay reward eligibility, payout lifecycle, and reconciliation.
 CREATE TABLE IF NOT EXISTS reward_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -228,6 +228,7 @@ CREATE TABLE IF NOT EXISTS reward_claims (
   source_type TEXT NOT NULL CHECK (source_type IN ('battle', 'quest')),
   source_id TEXT NOT NULL,
   amount BIGINT NOT NULL CHECK (amount > 0),
+  asset_symbol VARCHAR(8) NOT NULL DEFAULT 'SOL',
   status TEXT NOT NULL CHECK (
     status IN ('reserved', 'preparing', 'submitted', 'submission_unknown', 'confirmed', 'failed')
   ),

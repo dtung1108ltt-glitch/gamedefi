@@ -223,7 +223,7 @@ export interface Quest {
   completed_battles?: number;
   reward_gold?: number;
   reward_rice?: number;
-  reward_hkdv_base_units?: number;
+  reward_sol_lamports?: number;
   reward_claim_status?: string | null;
 }
 
@@ -267,6 +267,7 @@ export interface RewardClaim {
   source_id: string;
   battle_id?: string | null;
   amount: number;
+  asset_symbol: string;
   tx_digest?: string | null;
   receipt_address?: string | null;
   status: 'reserved' | 'preparing' | 'submitted' | 'submission_unknown' | 'confirmed' | 'failed';
@@ -376,36 +377,3 @@ export interface BattleResultResponse {
 }
 
 export type DefiModule = 'payments' | 'savings' | 'lending' | 'dex' | 'treasury' | 'dao';
-
-
-export interface GameTokenInfo {
-  network: string;
-  name: string;
-  symbol: string;
-  mint: string;
-  decimals: number;
-  total_supply: string;
-  token_program: string;
-  treasury_owner: string;
-  treasury_token_account: string;
-  metadata_uri: string;
-  explorer_url: string;
-  verified: boolean;
-  treasury_on_chain: {
-    address: string;
-    mint: string;
-    owner: string;
-    amount: string;
-    decimals: number;
-    state: string;
-  };
-  on_chain: {
-    mint: string;
-    program_id: string;
-    supply: string;
-    decimals: number;
-    is_initialized: boolean;
-    mint_authority: string | null;
-    freeze_authority: string | null;
-  };
-}

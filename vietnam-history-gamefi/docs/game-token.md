@@ -1,3 +1,5 @@
+> Hồ sơ lịch sử của token và distributor Devnet cũ. Luồng sản phẩm hiện tại dùng SOL Devnet.
+
 # HKDV Game Token — Devnet
 
 Giai đoạn 4 phát hành một SPL Token chuẩn cho nền kinh tế game. Token này chưa được đưa vào DEX và chưa dùng để trả thưởng cho đến khi `reward_distributor` của giai đoạn 5 hoàn thành.

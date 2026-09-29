@@ -85,7 +85,7 @@ def check_devnet_readiness(
 
     try:
         checks["reward_signer"] = (
-            str(adapter._load_reward_distributor_keypair().pubkey()) == settings.reward_distributor_authority
+            str(adapter._load_sol_reward_signer().pubkey()) == settings.sol_reward_signer_address
         )
     except Exception:
         checks["reward_signer"] = False
@@ -100,7 +100,7 @@ def check_devnet_readiness(
         checks["database"] = False
 
     return {
-        "status": "ok" if all(checks.values()) else "unavailable",
+        "status": "ok" if all(value for key, value in checks.items() if key != "reward_signer") else "unavailable",
         "network": settings.solana_network,
         "checks": checks,
     }

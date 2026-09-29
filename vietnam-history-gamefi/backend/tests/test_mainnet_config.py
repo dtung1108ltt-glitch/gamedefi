@@ -6,7 +6,7 @@ from app.api.dex import require_trading_enabled
 from app.api.reward import submit_event_reward
 from app.core.config import Settings
 from app.core.mainnet import mainnet_configuration_errors, validate_mainnet_configuration
-from app.dex.interface import DexProviderError, token_registry
+from app.dex.interface import token_registry
 
 
 def test_mainnet_defaults_fail_closed():
@@ -17,11 +17,10 @@ def test_mainnet_defaults_fail_closed():
     assert any("MAINNET_UPGRADE_AUTHORITY" in error for error in errors)
     with pytest.raises(ValueError, match="Mainnet chưa an toàn"):
         validate_mainnet_configuration(settings)
-    with pytest.raises(DexProviderError, match="mint HKDV Mainnet"):
-        token_registry("mainnet-beta")
+    assert set(token_registry("mainnet-beta")) == {"SOL", "USDC"}
 
 
-def test_mainnet_requires_separate_valid_identities_and_hkdv_pair():
+def test_mainnet_requires_separate_valid_identities_and_sol_usdc_pair():
     addresses = [str(Keypair().pubkey()) for _ in range(9)]
     settings = Settings(
         _env_file=None,
@@ -45,9 +44,9 @@ def test_mainnet_requires_separate_valid_identities_and_hkdv_pair():
         cors_allow_origins="https://game.example.com",
     )
     validate_mainnet_configuration(settings)
-    tokens = token_registry("mainnet-beta", settings.game_token_mint)
-    assert set(tokens) == {"SOL", "HKDV"}
-    assert tokens["HKDV"].mint == settings.game_token_mint
+    tokens = token_registry("mainnet-beta")
+    assert set(tokens) == {"SOL", "USDC"}
+    assert tokens["USDC"].mint != settings.game_token_mint
 
 
 def test_mainnet_dex_stays_closed_until_explicitly_enabled():

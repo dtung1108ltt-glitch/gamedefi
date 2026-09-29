@@ -1,8 +1,26 @@
 from __future__ import annotations
 
+import sqlite3
+
+from sqlalchemy import text
+
 from app.blockchain.interface import TransactionInfo
 from app.rewards.persistence import RewardRepository
 from app.rewards.reconciliation import reconcile_wallet
+
+
+def test_existing_reward_claims_keep_legacy_asset_during_upgrade(tmp_path):
+    database = tmp_path / "legacy-rewards.db"
+    with sqlite3.connect(database) as connection:
+        connection.execute("CREATE TABLE reward_claims (id TEXT PRIMARY KEY)")
+        connection.execute("INSERT INTO reward_claims (id) VALUES ('old-claim')")
+
+    repository = RewardRepository(f"sqlite+pysqlite:///{database.as_posix()}")
+    with repository.engine.connect() as connection:
+        asset = connection.execute(text(
+            "SELECT asset_symbol FROM reward_claims WHERE id = 'old-claim'"
+        )).scalar_one()
+    assert asset == "HKDV"
 
 
 class ReceiptAdapter:
@@ -92,7 +110,7 @@ def test_reconciliation_requires_matching_transaction_and_receipt():
         qualifier="bach_dang_1288",
         eligible=True,
     )
-    claim, _ = repository.reserve_claim(event=event, amount=10_000_000)
+    claim, _ = repository.reserve_claim(event=event, amount=10_000_000, asset_symbol="HKDV")
     claim, acquired = repository.acquire_submission(claim.claim_id)
     assert acquired is True
     repository.mark_prepared(

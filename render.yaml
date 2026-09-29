@@ -1,5 +1,5 @@
 # Devnet preview only. The free PostgreSQL instance expires after 30 days.
-# Upload the reward signer as a Render secret file before the first healthy deploy.
+# Reward signer can be configured after deploy as a Render secret environment variable.
 services:
   - type: web
     name: haokhi-devnet
@@ -27,8 +27,8 @@ services:
         fromDatabase:
           name: haokhi-devnet-db
           property: connectionString
-      - key: REWARD_DISTRIBUTOR_KEYPAIR_PATH
-        value: /etc/secrets/devnet-reward-distributor-keypair.json
+      - key: SOL_REWARD_SIGNER_ADDRESS
+        value: 6RigAPgKTdEwxmRqaoMiJj6GYnkipTSwRRc9Wkw79rTv
 
 databases:
   - name: haokhi-devnet-db

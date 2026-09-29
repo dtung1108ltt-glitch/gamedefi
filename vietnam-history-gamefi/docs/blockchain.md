@@ -30,9 +30,7 @@ Backend xác minh transaction thành công cùng proof đúng chủ program/disc
 
 ## Reward, advisor, trading
 
-Reward distributor HKDV đã triển khai trên Devnet. Vault do config PDA sở hữu; chỉ distributor đã cấu hình được payout và mỗi `claim_id` có receipt PDA dùng một lần. Admin có thể pause, rotate distributor, đổi giới hạn và thu hồi số dư chưa phân phối. Chi tiết tại [reward distributor](reward-distributor.md).
-
-`POST /rewards/claim` vẫn trả 409 trong giai đoạn 5 vì kết nối battle/quest với distributor signer thuộc giai đoạn 6. Marketplace/P2P trả 503 cho thao tác ghi, chờ escrow contract.
+Thưởng hiện tại là SOL Devnet: backend ký chuyển SOL từ ví phân phối riêng cho trận thắng/nhiệm vụ đủ điều kiện. Giao dịch có memo claim ID, được lưu trước khi gửi và đối soát theo chữ ký, người nhận và số lượng. Cấu hình và nạp ví phân phối theo [DeFi](defi.md). Marketplace/P2P vẫn trả 503 cho thao tác ghi đến khi có escrow.
 
 ## Cấu hình / deploy
 
@@ -65,6 +63,6 @@ anchor test --provider.cluster localnet
 `bash scripts/test-solana-localnet.sh` build program, preload SBF vào local validator và kiểm tra faction cùng reward SPL end-to-end. Unit test không gửi giao dịch public network.
 
 
-## HKDV SPL game token
+## Hồ sơ token cũ
 
-Giai đoạn 4 đã tạo mint Devnet `45kZL6u62pbEmLiiZuUeuPWcotqZb8DLMmaPD5tNs1qm` với 6 decimals và tổng cung cố định 1 tỷ HKDV. Mint authority đã bị vô hiệu hóa và freeze authority không tồn tại. Toàn bộ cung hiện ở treasury ATA `3d3aVnwqsre4AfnvVCMvkLvLZ7YbxY3A6P5Er3wKg1Sp`; xem [thiết kế và vận hành token](game-token.md).
+Mint và reward distributor Devnet cũ vẫn tồn tại trên chuỗi; không thể xóa lịch sử Solana. Ứng dụng hiện không dùng token đó cho DEX hay thưởng mới. Hồ sơ triển khai được giữ trong [tài liệu lưu trữ](game-token.md) để đối soát.

@@ -27,7 +27,7 @@ class DevnetAdapter:
             "data": [base64.b64encode(b"program").decode(), "base64"],
         }}
 
-    def _load_reward_distributor_keypair(self):
+    def _load_sol_reward_signer(self):
         if self.signer is None:
             raise FileNotFoundError("signer missing")
         return self.signer
@@ -40,7 +40,7 @@ def test_devnet_ready_requires_rpc_program_signer_and_migrated_tables(tmp_path):
         _env_file=None,
         solana_network="devnet",
         solana_program_id=program,
-        reward_distributor_authority=str(signer.pubkey()),
+        sol_reward_signer_address=str(signer.pubkey()),
     )
     database_url = f"sqlite+pysqlite:///{tmp_path / 'ready.db'}"
     swaps = DexSwapRepository(database_url, create_schema=True)
@@ -55,7 +55,9 @@ def test_devnet_ready_requires_rpc_program_signer_and_migrated_tables(tmp_path):
     assert check_devnet_readiness(settings, adapter, swaps, claims)["checks"]["rpc_devnet"] is False
     adapter.genesis = DEVNET_GENESIS
     adapter.signer = None
-    assert check_devnet_readiness(settings, adapter, swaps, claims)["checks"]["reward_signer"] is False
+    without_signer = check_devnet_readiness(settings, adapter, swaps, claims)
+    assert without_signer["checks"]["reward_signer"] is False
+    assert without_signer["status"] == "ok"
 
 
 def test_devnet_ready_rejects_unmigrated_database(tmp_path):

@@ -18,8 +18,9 @@ class Settings(BaseSettings):
     solana_rpc_url: str = "https://api.devnet.solana.com"
     solana_program_id: str = ""
     solana_gas_budget_lamports: int = 5_000_000
-    battle_reward_amount_base_units: int = 5_000_000
-    quest_reward_amount_base_units: int = 10_000_000
+    battle_reward_lamports: int = 100_000
+    quest_reward_lamports: int = 200_000
+    reward_max_lamports: int = 1_000_000
 
     # --- Fixed-supply HKDV game token (Solana Devnet, phase 4) ---
     game_token_name: str = "Hao Khi Dai Viet"
@@ -43,14 +44,20 @@ class Settings(BaseSettings):
     reward_vault_alert_threshold_base_units: int = 10_000_000_000
     reward_mainnet_enabled: bool = False
     reward_distributor_keypair_path: str = "~/.config/solana/gamefi-hkdv/devnet-reward-distributor-keypair.json"
+    sol_reward_signer_address: str = "6RigAPgKTdEwxmRqaoMiJj6GYnkipTSwRRc9Wkw79rTv"
+    sol_reward_signer_keypair_base64: str = ""
 
     # --- DEX ---
-    # Devnet uses Raydium HKDV/SOL. Mainnet routes the same pair through Jupiter.
+    # Devnet uses verified SOL/test-token Raydium CPMM pools. Mainnet uses Jupiter.
     raydium_cpmm_program_id: str = "DRaycpLY18LhpbydsBWbVJtxpNv9oXPgjRSfpF2bWpYb"
-    raydium_pool_id: str = "6dg1ELPzBmmqs7UDTr8pAZmGNQY9XymEDo6KQx8h4J2r"
-    raydium_config_id: str = "5MxLgy9oPdTC3YgkiePHqr3EoCRD9uLVYRQS2ANAs7wy"
-    raydium_wsol_vault: str = "5RyuHkhmFLa2AziU4X6Y6i49d4WN6uGn6Cty3L4mHuWc"
-    raydium_hkdv_vault: str = "DYv7LuMu5Qnt9PTSft7R83Aan5ANo88GRXmEMbmcDZdD"
+    raydium_usdc_pool_id: str = "FeRts7d5DfXKXq1hGMkeiGEHayDdjsmSyJ41rHVcKo8t"
+    raydium_usdc_config_id: str = "5Gt9qrPJ6FVe9VHtwF2W2JrFR6p9jmx4DxBkgfPdaApk"
+    raydium_usdc_wsol_vault: str = "4qkXenqkyjWo5MozQvQSBWMa7xoSQtojcy5Z7FkJfKzm"
+    raydium_usdc_token_vault: str = "yuy43wAJF4LKQqS5G28ckHAXbeNYBgaaBqDdhrZgd3i"
+    raydium_usdt_pool_id: str = "Bw9gaeKqQy5aTpi1BiSdV2p21REATtVXDdhjPUFjgq6N"
+    raydium_usdt_config_id: str = "5MxLgy9oPdTC3YgkiePHqr3EoCRD9uLVYRQS2ANAs7wy"
+    raydium_usdt_wsol_vault: str = "Gnw1rRef7YWPLQ4ynZWKtzMZYncLgubXUzWwsmSHThSL"
+    raydium_usdt_token_vault: str = "GU6yLWN7ftBJgpPgdeMbBqoTqAPYpWNv74HkQbobhC9k"
     jupiter_api_key: str = ""
     jupiter_base_url: str = "https://api.jup.ag/swap/v2"
     dex_mainnet_enabled: bool = False

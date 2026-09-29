@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = (
     ROOT / "database" / "migrations" / "001_dex_swaps.sql",
     ROOT / "database" / "migrations" / "002_reward_claims.sql",
+    ROOT / "database" / "migrations" / "003_sol_reward_asset.sql",
 )
 
 

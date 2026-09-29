@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import time
 import uuid
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -16,12 +17,21 @@ from app.dex.interface import (
     DexOrderRequestData,
     DexProvider,
     DexProviderError,
-    HKDV_MINT,
     SOL_MINT,
+    token_registry,
 )
 
 
 FEE_DENOMINATOR = 1_000_000
+
+
+@dataclass(frozen=True)
+class PoolConfig:
+    pool_id: str
+    config_id: str
+    wsol_vault: str
+    token_vault: str
+    token_mint: str
 
 
 def _u64(data: bytes, offset: int) -> int:
@@ -33,7 +43,7 @@ def _pubkey(data: bytes, offset: int) -> str:
 
 
 class RaydiumDexProvider(DexProvider):
-    """Quote and submit swaps for one verified Raydium CPMM pool on Devnet."""
+    """Quote and submit swaps for allowlisted Raydium CPMM pools on Devnet."""
 
     name = "raydium"
     supports_execution = True
@@ -41,14 +51,21 @@ class RaydiumDexProvider(DexProvider):
     def __init__(self, settings: Settings, client: httpx.Client | None = None):
         self.rpc_url = settings.solana_rpc_url
         self.program_id = settings.raydium_cpmm_program_id
-        self.pool_id = settings.raydium_pool_id
-        self.config_id = settings.raydium_config_id
-        self.wsol_vault = settings.raydium_wsol_vault
-        self.hkdv_vault = settings.raydium_hkdv_vault
+        tokens = token_registry("devnet")
+        self.pools = {
+            "USDC": PoolConfig(settings.raydium_usdc_pool_id, settings.raydium_usdc_config_id,
+                               settings.raydium_usdc_wsol_vault, settings.raydium_usdc_token_vault,
+                               tokens["USDC"].mint),
+            "USDT": PoolConfig(settings.raydium_usdt_pool_id, settings.raydium_usdt_config_id,
+                               settings.raydium_usdt_wsol_vault, settings.raydium_usdt_token_vault,
+                               tokens["USDT"].mint),
+        }
         self.http = client or httpx.Client(timeout=20.0)
 
-    def required_transaction_accounts(self) -> set[str]:
-        return {self.program_id, self.pool_id}
+    def required_transaction_accounts(self, router: str) -> tuple[str, str]:
+        if router not in {pool.pool_id for pool in self.pools.values()}:
+            raise DexProviderError("Pool không thuộc danh sách DEX Devnet")
+        return self.program_id, router
 
     def _rpc(self, method: str, params: list[Any]) -> Any:
         try:
@@ -73,33 +90,33 @@ class RaydiumDexProvider(DexProvider):
         except (KeyError, TypeError, ValueError) as exc:
             raise DexProviderError("Solana RPC trả account Raydium không hợp lệ") from exc
 
-    def _pool_state(self) -> dict[str, int]:
+    def _pool_state(self, pool_config: PoolConfig) -> dict[str, int]:
         result = self._rpc("getMultipleAccounts", [[
-            self.pool_id, self.config_id, self.wsol_vault, self.hkdv_vault,
+            pool_config.pool_id, pool_config.config_id, pool_config.wsol_vault, pool_config.token_vault,
         ], {"encoding": "base64", "commitment": "confirmed"}])
         values = (result or {}).get("value") if isinstance(result, dict) else None
         if not isinstance(values, list) or len(values) != 4 or any(value is None for value in values):
-            raise DexProviderError("Không đọc được pool HKDV/SOL từ Solana Devnet")
+            raise DexProviderError("Không đọc được pool SOL trên Solana Devnet")
 
         pool = self._decode_account(values[0], self.program_id)
         config = self._decode_account(values[1], self.program_id)
         wsol = self._decode_account(values[2], SPL_TOKEN_PROGRAM_ID)
-        hkdv = self._decode_account(values[3], SPL_TOKEN_PROGRAM_ID)
-        if len(pool) < 413 or len(config) < 124 or len(wsol) < 72 or len(hkdv) < 72:
+        token = self._decode_account(values[3], SPL_TOKEN_PROGRAM_ID)
+        if len(pool) < 413 or len(config) < 124 or len(wsol) < 72 or len(token) < 72:
             raise DexProviderError("Kích thước account Raydium không hợp lệ")
 
-        if _pubkey(pool, 8) != self.config_id:
+        if _pubkey(pool, 8) != pool_config.config_id:
             raise DexProviderError("Pool Raydium không dùng config đã cấu hình")
         pool_vault_a, pool_vault_b = _pubkey(pool, 72), _pubkey(pool, 104)
         pool_mint_a, pool_mint_b = _pubkey(pool, 168), _pubkey(pool, 200)
-        if {pool_vault_a, pool_vault_b} != {self.wsol_vault, self.hkdv_vault}:
+        if {pool_vault_a, pool_vault_b} != {pool_config.wsol_vault, pool_config.token_vault}:
             raise DexProviderError("Vault Raydium không khớp deployment record")
-        if {pool_mint_a, pool_mint_b} != {SOL_MINT, HKDV_MINT}:
-            raise DexProviderError("Mint Raydium không phải cặp SOL/HKDV")
-        if _pubkey(wsol, 0) != SOL_MINT or _pubkey(hkdv, 0) != HKDV_MINT:
+        if {pool_mint_a, pool_mint_b} != {SOL_MINT, pool_config.token_mint}:
+            raise DexProviderError("Mint Raydium không khớp cặp SOL đã chọn")
+        if _pubkey(wsol, 0) != SOL_MINT or _pubkey(token, 0) != pool_config.token_mint:
             raise DexProviderError("Mint của vault Raydium không hợp lệ")
 
-        vault_balances = {self.wsol_vault: _u64(wsol, 64), self.hkdv_vault: _u64(hkdv, 64)}
+        vault_balances = {pool_config.wsol_vault: _u64(wsol, 64), pool_config.token_vault: _u64(token, 64)}
         fees_a = _u64(pool, 341) + _u64(pool, 357) + _u64(pool, 397)
         fees_b = _u64(pool, 349) + _u64(pool, 365) + _u64(pool, 405)
         reserves = {
@@ -110,7 +127,7 @@ class RaydiumDexProvider(DexProvider):
             raise DexProviderError("Pool Raydium không còn đủ thanh khoản")
         return {
             "sol_reserve": reserves[SOL_MINT],
-            "hkdv_reserve": reserves[HKDV_MINT],
+            "token_reserve": reserves[pool_config.token_mint],
             "trade_fee_rate": _u64(config, 12),
             "protocol_fee_rate": _u64(config, 20),
             "fund_fee_rate": _u64(config, 28),
@@ -123,14 +140,17 @@ class RaydiumDexProvider(DexProvider):
         return (amount * rate + FEE_DENOMINATOR - 1) // FEE_DENOMINATOR
 
     def get_order(self, request: DexOrderRequestData) -> DexOrder:
-        if {request.input_token.symbol, request.output_token.symbol} != {"SOL", "HKDV"}:
-            raise DexProviderError("Raydium Devnet chỉ hỗ trợ cặp SOL/HKDV")
+        pair = {request.input_token.symbol, request.output_token.symbol}
+        target = next((symbol for symbol in self.pools if pair == {"SOL", symbol}), None)
+        if target is None:
+            raise DexProviderError("Raydium Devnet chỉ hỗ trợ SOL/USDC và SOL/USDT thử")
+        pool_config = self.pools[target]
         amount = int(request.amount)
-        state = self._pool_state()
+        state = self._pool_state(pool_config)
         input_reserve, output_reserve = (
-            (state["sol_reserve"], state["hkdv_reserve"])
+            (state["sol_reserve"], state["token_reserve"])
             if request.input_token.symbol == "SOL"
-            else (state["hkdv_reserve"], state["sol_reserve"])
+            else (state["token_reserve"], state["sol_reserve"])
         )
         trade_fee = self._ceil_fee(amount, state["trade_fee_rate"])
         creator_on_input = state["fee_on"] in (0, 2)
@@ -159,7 +179,7 @@ class RaydiumDexProvider(DexProvider):
             input_decimals=request.input_token.decimals,
             output_decimals=request.output_token.decimals,
             provider=self.name,
-            router=self.pool_id,
+            router=pool_config.pool_id,
             mode="exact-in",
             fee_bps=(state["trade_fee_rate"] + state["creator_fee_rate"]) // 100,
             slippage_bps=request.slippage_bps,
@@ -167,7 +187,7 @@ class RaydiumDexProvider(DexProvider):
             executable=True,
             simulation=False,
             expires_at=int(time.time()) + 120,
-            warning="Raydium Devnet dùng tài sản thử nghiệm; SOL và HKDV không có giá trị thật.",
+            warning=f"{target} này là token thử trên Devnet; tỷ giá không phản ánh thị trường Mainnet.",
             price_impact_bps=price_impact_bps,
         )
 

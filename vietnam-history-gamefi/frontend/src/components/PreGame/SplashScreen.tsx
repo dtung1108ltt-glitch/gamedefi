@@ -20,7 +20,7 @@ const worlds = [
   { label: 'Chiến dịch', detail: 'Dàn trận, chọn triều đại và chinh chiến qua sử Việt.', eyebrow: 'Chiến thuật theo lượt', art: 'campaign', Icon: Swords, action: 'Vào game' },
   { label: 'Quân Sư', detail: 'Tìm hiểu những danh tướng đồng hành cùng quân đội.', eyebrow: 'Tướng cố vấn', art: 'advisor', Icon: Crown, action: 'Gặp quân sư' },
   { label: 'Marketplace', detail: 'Xem khu Chợ Tướng. Giao dịch đang chờ escrow on-chain.', eyebrow: 'Đang xem trước', art: 'market', Icon: ShoppingBag, action: 'Xem chợ tướng' },
-  { label: 'DEX', detail: 'Khám phá luồng đổi HKDV và SOL trên Solana Devnet.', eyebrow: 'HKDV / SOL', art: 'dex', Icon: ArrowLeftRight, action: 'Mở DEX' },
+  { label: 'DEX', detail: 'Đổi SOL với USDC hoặc USDT thử trên Solana Devnet.', eyebrow: 'SOL / Token thử', art: 'dex', Icon: ArrowLeftRight, action: 'Mở DEX' },
 ];
 
 const legends = [
@@ -58,7 +58,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   onPlayGong,
 }) => {
   const [rankMetric, setRankMetric] = useState<RankMetric>('power');
-  const [swapFrom, setSwapFrom] = useState<'HKDV' | 'SOL'>('HKDV');
+  const [swapFrom, setSwapFrom] = useState<'USDC' | 'SOL'>('SOL');
   const [swapAmount, setSwapAmount] = useState('');
   const rankedLeaders = [...seasonLeaders].sort((a, b) => b[rankMetric] - a[rankMetric]);
 
@@ -97,7 +97,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
               <a className="portal-button portal-button-secondary" href="#ecosystem"><BookOpen aria-hidden="true" /> Khám phá hệ sinh thái</a>
             </div>
             <div className="portal-hero-pills" aria-label="Các khu vực của game">
-              <span>Chiến thuật theo lượt</span><span>Tướng cố vấn</span><span>HKDV / SOL Devnet</span>
+              <span>Chiến thuật theo lượt</span><span>Tướng cố vấn</span><span>SOL / Token thử Devnet</span>
             </div>
           </div>
         </div>
@@ -162,15 +162,15 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             </div>
           </section>
           <section className="portal-panel portal-trade" aria-labelledby="portal-trade-title">
-            <div className="portal-panel-heading"><div><h2 id="portal-trade-title">Swap nhanh</h2><p>Đổi HKDV và SOL trên Solana Devnet.</p></div><button type="button" onClick={() => onOpenDex()}>Mở DEX <ArrowRight aria-hidden="true" /></button></div>
+            <div className="portal-panel-heading"><div><h2 id="portal-trade-title">Swap nhanh</h2><p>Đổi SOL và USDC thử trên Solana Devnet.</p></div><button type="button" onClick={() => onOpenDex()}>Mở DEX <ArrowRight aria-hidden="true" /></button></div>
             <div className="portal-swap-form">
               <label className="portal-swap-row">
-                <span className="portal-swap-token"><img src={swapFrom === 'HKDV' ? '/drum_icon.svg' : '/solana-token.svg'} alt="" /><strong>{swapFrom}</strong></span>
+                <span className="portal-swap-token"><img src={swapFrom === 'USDC' ? '/usdc-token.svg' : '/solana-token.svg'} alt="" /><strong>{swapFrom}</strong></span>
                 <span className="portal-swap-field"><span>Bạn gửi</span><input inputMode="decimal" type="text" value={swapAmount} onChange={(event) => setSwapAmount(event.target.value.replace(/[^\d.,]/g, ''))} placeholder="0.00" aria-label={`Số lượng ${swapFrom} muốn đổi`} /></span>
               </label>
-              <button className="portal-swap-reverse" type="button" onClick={() => { setSwapFrom(swapFrom === 'HKDV' ? 'SOL' : 'HKDV'); setSwapAmount(''); }} aria-label="Đảo chiều cặp giao dịch"><ArrowDownUp aria-hidden="true" /></button>
+              <button className="portal-swap-reverse" type="button" onClick={() => { setSwapFrom(swapFrom === 'USDC' ? 'SOL' : 'USDC'); setSwapAmount(''); }} aria-label="Đảo chiều cặp giao dịch"><ArrowDownUp aria-hidden="true" /></button>
               <div className="portal-swap-row portal-swap-result">
-                <span className="portal-swap-token"><img src={swapFrom === 'HKDV' ? '/solana-token.svg' : '/drum_icon.svg'} alt="" /><strong>{swapFrom === 'HKDV' ? 'SOL' : 'HKDV'}</strong></span>
+                <span className="portal-swap-token"><img src={swapFrom === 'USDC' ? '/solana-token.svg' : '/usdc-token.svg'} alt="" /><strong>{swapFrom === 'USDC' ? 'SOL' : 'USDC'}</strong></span>
                 <span className="portal-swap-field"><span>Bạn nhận</span><strong>—</strong></span>
               </div>
             </div>
@@ -192,7 +192,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                 <strong role="cell"><span className="portal-rank-avatar" aria-hidden="true">{leader.name.slice(0, 1)}</span>{leader.name}</strong>
                 <span role="cell">Lv.{leader.level}</span>
                 <span role="cell">{(rankMetric === 'wins' ? leader.wins : leader.power).toLocaleString('vi-VN')}</span>
-                <span className="portal-rank-reward" role="cell"><img src="/drum_icon.svg" alt="" />{[2500, 1500, 800, 500, 300][index].toLocaleString('vi-VN')} HKDV</span>
+                <span className="portal-rank-reward" role="cell"><img src="/solana-token.svg" alt="" />{[0.01, 0.008, 0.006, 0.004, 0.002][index].toLocaleString('vi-VN')} SOL thử</span>
               </div>)}
             </div></div>
           </section>

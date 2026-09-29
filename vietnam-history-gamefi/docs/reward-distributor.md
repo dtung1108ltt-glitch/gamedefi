@@ -1,3 +1,5 @@
+> Hồ sơ lịch sử của token và distributor Devnet cũ. Luồng sản phẩm hiện tại dùng SOL Devnet.
+
 # HKDV Reward Distributor — Devnet
 
 Giai đoạn 5 triển khai reward vault do program `history_game` quản lý. Contract chỉ chuyển HKDV đã được nạp sẵn; contract không có mint authority và không thể làm tăng tổng cung.

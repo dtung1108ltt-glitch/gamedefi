@@ -100,8 +100,8 @@ def dex_config(request: Request):
             settings.solana_network != "mainnet-beta" or settings.dex_mainnet_enabled
         ),
         "persistence": "sql",
-        "tokens": [token.__dict__ for token in token_registry(settings.solana_network, settings.game_token_mint).values()],
-        "pool_id": getattr(provider, "pool_id", None),
+        "tokens": [token.__dict__ for token in token_registry(settings.solana_network).values()],
+        "pools": {symbol: pool.pool_id for symbol, pool in getattr(provider, "pools", {}).items()},
         "program_id": getattr(provider, "program_id", None),
     }
 
@@ -125,7 +125,7 @@ def create_order(body: DexOrderRequest, request: Request, principal: SessionPrin
             if existing.intent_hash != digest:
                 raise DexIdempotencyConflict("Khóa idempotency đã được dùng cho một lệnh khác")
             return DexOrderOut(**existing.to_order().__dict__)
-        tokens = token_registry(network, request.app.state.settings.game_token_mint)
+        tokens = token_registry(network)
         if body.input_symbol not in tokens or body.output_symbol not in tokens:
             raise HTTPException(status_code=422, detail="Cặp token không được hỗ trợ trên mạng này")
         order = request.app.state.dex_provider.get_order(DexOrderRequestData(
@@ -163,9 +163,8 @@ def execute_order(body: DexExecuteRequest, request: Request, principal: SessionP
         if quote is None or quote.provider != provider.name or not quote.executable:
             raise DexOrderUnavailable("Không tìm thấy lệnh DEX hợp lệ cho ví này")
         required_instruction = (
-            (provider.program_id, provider.pool_id)
-            if hasattr(provider, "program_id") and hasattr(provider, "pool_id")
-            else None
+            provider.required_transaction_accounts(quote.router)
+            if hasattr(provider, "required_transaction_accounts") else None
         )
         if provider.name == "jupiter" and not quote.transaction:
             raise DexOrderUnavailable("Lệnh Jupiter không có giao dịch để ký")
@@ -174,6 +173,8 @@ def execute_order(body: DexExecuteRequest, request: Request, principal: SessionP
             quoted_transaction=quote.transaction if provider.name == "jupiter" else None,
         )
     except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except DexProviderError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except DexPersistenceError as exc:
         raise persistence_error(exc) from exc

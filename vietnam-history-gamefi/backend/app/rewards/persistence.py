@@ -19,7 +19,9 @@ from sqlalchemy import (
     Uuid,
     create_engine,
     func,
+    inspect,
     select,
+    text,
 )
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
@@ -91,6 +93,7 @@ class RewardClaimModel(Base):
     source_type: Mapped[str] = mapped_column(String(16), nullable=False)
     source_id: Mapped[str] = mapped_column(String(160), nullable=False)
     amount: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    asset_symbol: Mapped[str] = mapped_column(String(8), nullable=False, default="SOL")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="reserved")
     tx_signature: Mapped[str | None] = mapped_column(String(128), unique=True)
     receipt_address: Mapped[str | None] = mapped_column(String(64), unique=True)
@@ -126,6 +129,7 @@ class RewardClaimRecord:
     source_type: str
     source_id: str
     amount: int
+    asset_symbol: str
     status: str
     tx_signature: str | None
     receipt_address: str | None
@@ -150,6 +154,11 @@ class RewardRepository:
         self.sessions = sessionmaker(self.engine, expire_on_commit=False)
         if create_schema:
             Base.metadata.create_all(self.engine)
+        if "reward_claims" in inspect(self.engine).get_table_names():
+            columns = {column["name"] for column in inspect(self.engine).get_columns("reward_claims")}
+            if "asset_symbol" not in columns:
+                with self.engine.begin() as connection:
+                    connection.execute(text("ALTER TABLE reward_claims ADD COLUMN asset_symbol VARCHAR(8) NOT NULL DEFAULT 'HKDV'"))
 
     @staticmethod
     def _event(row: RewardEventModel) -> RewardEventRecord:
@@ -265,9 +274,9 @@ class RewardRepository:
         except SQLAlchemyError as exc:
             raise RewardPersistenceError("Không thể đọc chữ ký phần thưởng") from exc
 
-    def reserve_claim(self, *, event: RewardEventRecord, amount: int) -> tuple[RewardClaimRecord, bool]:
+    def reserve_claim(self, *, event: RewardEventRecord, amount: int, asset_symbol: str = "SOL") -> tuple[RewardClaimRecord, bool]:
         if not event.eligible:
-            raise RewardClaimUnavailable("Sự kiện không đủ điều kiện nhận HKDV")
+            raise RewardClaimUnavailable("Sự kiện không đủ điều kiện nhận thưởng")
         if amount <= 0:
             raise ValueError("Reward amount must be positive")
         claim_id = reward_claim_id(event.network, event.wallet, event.source_type, event.source_id)
@@ -275,7 +284,7 @@ class RewardRepository:
             network=event.network, wallet=event.wallet, source_type=event.source_type, source_id=event.source_id
         )
         if existing:
-            if existing.claim_id != claim_id or existing.wallet != event.wallet or existing.amount != amount:
+            if existing.claim_id != claim_id or existing.wallet != event.wallet:
                 raise RewardConflict("Claim đã tồn tại với dữ liệu khác")
             return existing, False
         row = RewardClaimModel(
@@ -287,6 +296,7 @@ class RewardRepository:
             source_id=event.source_id,
             amount=amount,
             status="reserved",
+            asset_symbol=asset_symbol,
         )
         try:
             with self.sessions.begin() as db:
@@ -296,7 +306,7 @@ class RewardRepository:
             existing = self.get_claim_for_event(
                 network=event.network, wallet=event.wallet, source_type=event.source_type, source_id=event.source_id
             )
-            if existing and existing.claim_id == claim_id and existing.wallet == event.wallet and existing.amount == amount:
+            if existing and existing.claim_id == claim_id and existing.wallet == event.wallet:
                 return existing, False
             raise RewardConflict("Claim đã được tạo bởi yêu cầu khác") from exc
         except SQLAlchemyError as exc:
@@ -331,7 +341,7 @@ class RewardRepository:
         claim_id: str,
         *,
         signature: str,
-        receipt_address: str,
+        receipt_address: str | None,
         signed_transaction: str,
         last_valid_block_height: int,
     ) -> RewardClaimRecord:

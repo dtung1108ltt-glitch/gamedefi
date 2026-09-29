@@ -6,10 +6,6 @@ if [ "${DEVNET_DEPLOYED:-false}" = "true" ]; then
     echo "Devnet backend requires Devnet network, program ID and PostgreSQL URL." >&2
     exit 1
   fi
-  if [ ! -f "${REWARD_DISTRIBUTOR_KEYPAIR_PATH:-}" ]; then
-    echo "Devnet reward signer secret file is missing." >&2
-    exit 1
-  fi
   python /srv/gamefi/scripts/apply-migrations.py
 fi
 

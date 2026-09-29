@@ -221,7 +221,13 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
     try {
       const result = await apiService.executeBattle(player.wallet, 'bach_dang_1288', 'aggressive');
       setBattleResult(result);
-      if (result.victory && !player.is_guest) setRewardClaim(await apiService.claimBattleReward(player.wallet, result.battle_id));
+      if (result.victory && !player.is_guest) {
+        try {
+          setRewardClaim(await apiService.claimBattleReward(player.wallet, result.battle_id));
+        } catch (reason) {
+          setSettlementError(reason instanceof Error ? reason.message : 'Trận thắng đã ghi nhận; thưởng SOL tạm chưa gửi được.');
+        }
+      }
       if (result.victory) onPlayGong();
     } catch (reason) {
       setSettlementError(reason instanceof Error ? reason.message : 'Không thể ghi nhận kết quả trận đánh.');
@@ -931,9 +937,18 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                    
                    <div className="bg-[#1a2e1d] border border-emerald-900 rounded p-2 mb-3">
                       <div className="text-[10px] text-emerald-400 uppercase font-bold mb-1 border-b border-emerald-800/50 pb-1">Phần Thưởng</div>
-                      {rewardClaim && <div className="text-[11px] font-bold text-[#F3E5AB]">+5 HKDV</div>}
+                      {rewardClaim && <div className="text-[11px] font-bold text-[#F3E5AB]">{rewardClaim.asset_symbol === 'SOL' ? `+${(rewardClaim.amount / 1_000_000_000).toFixed(6)} SOL` : 'Phần thưởng trước đây'} · {rewardClaim.status === 'confirmed' ? 'đã xác nhận' : 'đang đối soát'}</div>}
                       <div className="text-[11px] text-emerald-200">+100 Exp</div>
                    </div>
+                   {battleResult.victory && !player.is_guest && (!rewardClaim || rewardClaim.status === 'failed') && (
+                     <button type="button" disabled={settling} onClick={async () => {
+                       setSettling(true);
+                       setSettlementError(null);
+                       try { setRewardClaim(await apiService.claimBattleReward(player.wallet, battleResult.battle_id)); }
+                       catch (reason) { setSettlementError(reason instanceof Error ? reason.message : 'Chưa gửi được thưởng SOL.'); }
+                       finally { setSettling(false); }
+                     }} className="mb-3 w-full rounded border border-amber-500/50 px-3 py-2 text-xs text-amber-200 disabled:opacity-40">Nhận lại SOL</button>
+                   )}
                    <button onClick={onExitBattle} className="w-full py-2 bg-gradient-to-r from-[#8b5e24] to-[#C9A44C] hover:brightness-110 text-black text-xs font-bold uppercase tracking-widest rounded shadow-lg transition-all">Rời chiến trường</button>
                  </>
                )}

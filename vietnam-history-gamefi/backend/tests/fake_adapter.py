@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from app.blockchain.interface import BlockchainAdapter, NftInfo, PreparedRewardSubmission, TransactionInfo
+from app.blockchain.solana_adapter import MEMO_PROGRAM_ID
+from solders.system_program import ID as SYSTEM_PROGRAM_ID
+import base58
 
 
 class FakeAdapter(BlockchainAdapter):
@@ -52,6 +55,10 @@ class FakeAdapter(BlockchainAdapter):
             last_valid_block_height=999_999_999,
         )
 
+    def prepare_sol_reward(self, recipient: str, amount: int, claim_id: bytes) -> PreparedRewardSubmission:
+        prepared = self.prepare_reward(recipient, amount, claim_id)
+        return PreparedRewardSubmission(prepared.signature, None, prepared.signed_transaction, prepared.last_valid_block_height)
+
     def submit_reward(self, prepared: PreparedRewardSubmission) -> str:
         recipient, amount, claim_hex = self.prepared_rewards[prepared.signature]
         self.txs[prepared.signature] = TransactionInfo(
@@ -60,6 +67,16 @@ class FakeAdapter(BlockchainAdapter):
             sender="6RigAPgKTdEwxmRqaoMiJj6GYnkipTSwRRc9Wkw79rTv",
             timestamp_ms=1_700_000_000_001,
             events=[{"recipient": recipient, "amount": amount, "claim_id": claim_hex}],
+            raw={"transaction": {"message": {
+                "accountKeys": ["6RigAPgKTdEwxmRqaoMiJj6GYnkipTSwRRc9Wkw79rTv", recipient,
+                                str(SYSTEM_PROGRAM_ID), MEMO_PROGRAM_ID],
+                "instructions": [
+                    {"programIdIndex": 2, "accounts": [0, 1],
+                     "data": base58.b58encode((2).to_bytes(4, "little") + amount.to_bytes(8, "little")).decode()},
+                    {"programIdIndex": 3, "accounts": [],
+                     "data": base58.b58encode(b"gamefi-sol-reward:" + claim_hex.encode()).decode()},
+                ],
+            }}},
         )
         self.reward_receipts[claim_hex] = {
             "address": prepared.receipt_address,

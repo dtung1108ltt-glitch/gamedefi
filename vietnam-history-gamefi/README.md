@@ -14,6 +14,7 @@ python -m pip install -r requirements.txt
 # Copy .env.example thành .env
 # Với PostgreSQL: psql "$DATABASE_URL" -f ../database/migrations/001_dex_swaps.sql
 psql "$DATABASE_URL" -f ../database/migrations/002_reward_claims.sql
+psql "$DATABASE_URL" -f ../database/migrations/003_sol_reward_asset.sql
 python -m pytest -q
 uvicorn app.main:app --reload
 ```
@@ -47,20 +48,16 @@ Chạy `python scripts/check-secrets.py` trước khi commit; GitHub Actions cũ
 - Frontend đọc program ID từ backend, kiểm tra mạng RPC, ví ký giao dịch và chờ xác nhận.
 - Backend kiểm tra PDA, chủ program, discriminator, chủ ví và faction trước khi lưu.
 - Các tên API cũ `nft_object_id`, `get_faction_nfts` được giữ để tương thích; giá trị là địa chỉ proof account.
-- Program mở `mint_faction` và reward distributor HKDV với vault PDA, giới hạn mỗi claim, pause, rotation và receipt chống replay.
+- Program mở `mint_faction` cho ấn tín faction. Phần thưởng SOL Devnet được backend gửi từ ví phân phối riêng.
 - Advisor và marketplace chưa có instruction on-chain cho đến khi escrow được triển khai an toàn.
 
 ## Deploy
-
-Triển khai frontend + API + PostgreSQL trên Devnet: [hướng dẫn Devnet](docs/devnet-deploy.md).
-CI chạy build/test và smoke test image trước khi Render tự deploy sau khi check đạt.
 
 Cần Rust, Solana CLI và Anchor 0.30.1 (Windows nên dùng WSL).
 Chạy từ repo bằng Bash khi đã có ví deploy và SOL Devnet:
 
 ```sh
 bash scripts/deploy-solana.sh devnet
-python3 scripts/initialize-reward-distributor.py devnet
 ```
 
 Script tạo program keypair nếu chưa có, đồng bộ ID **trước** build/deploy.
@@ -68,17 +65,13 @@ Script tạo program keypair nếu chưa có, đồng bộ ID **trước** build
 Đặt `SOLANA_NETWORK` và `VITE_SOLANA_NETWORK` giống nhau; hai RPC phải cùng cluster.
 Không commit keypair trong `target/`. Không có deployment được tự thực hiện khi chạy test.
 
-## Giới hạn hiện tại
+## Trạng thái hiện tại
 
-- Program `8qUBTgX99v5EhxbAaxuqS94rgfRhnLrTgW66Gh9BvLKN` đã deploy trên Devnet; ví development hiện là upgrade authority.
-- SPL game token `HKDV` (`45kZL6u62pbEmLiiZuUeuPWcotqZb8DLMmaPD5tNs1qm`) đã deploy trên Devnet với tổng cung cố định 1 tỷ; mint/freeze authority đều không còn.
-- Player, session và battle detail vẫn dùng RAM; reward eligibility và claim HKDV đã lưu bền vững trong PostgreSQL.
-- Vòng đời DEX đã nối SQLAlchemy/PostgreSQL; production cần chạy migration `database/migrations/001_dex_swaps.sql`. Nếu không cấu hình `DATABASE_URL`, môi trường local dùng SQLite `gamefi-dev.db`.
-- Battle engine/API đã có, nhưng bàn cờ frontend còn mô phỏng cục bộ, chưa gọi API battle để lưu kết quả.
-- Battle/quest hợp lệ tạo claim HKDV bền vững; backend dùng distributor key riêng để ký, receipt PDA chống phát trùng và API tự đối soát trạng thái Solana.
-- Marketplace/P2P chặn thao tác ghi bằng 503; danh sách ban đầu trống, không seed ownership giả.
-- DEX HKDV/SOL đã hoạt động trên Raydium CPMM Devnet; ví người chơi tự ký, backend xác minh đúng program/pool rồi gửi RPC. Swap intent, trạng thái và signature được lưu trong PostgreSQL, có idempotency và đối soát. Mainnet tiếp tục dùng Jupiter và cần `JUPITER_API_KEY`.
-- Cấu hình Mainnet được kiểm tra nghiêm ngặt; cặp giao dịch dự kiến là SOL/HKDV qua Jupiter. Mainnet chưa được deploy. Xem [cổng phát hành giai đoạn 8](docs/mainnet-release.md) trước khi dùng SOL thật.
-- Unity là client thử nghiệm gọi FastAPI cho đăng nhập Guest/wallet, quân sư, battle server-authoritative, leaderboard và battle reward claim. Xem [Unity client setup](unity-client/README.md); Unity vẫn cần wallet SDK/bridge thật để ký challenge và thao tác ví, và không phải frontend chính.
+- SOL Devnet là tài sản dùng cho phần thưởng chiến dịch và DEX. Trận thắng thưởng 0,0001 SOL thử; nhiệm vụ thưởng 0,0002 SOL thử. Ví phân phối cần được cấu hình bằng secret trên Render và nạp SOL Devnet.
+- DEX cho phép SOL ↔ USDC thử và SOL ↔ USDT thử qua hai pool Raydium Devnet đã kiểm tra mint/vault on-chain. Giá trên Devnet không đại diện cho thị trường Mainnet. Ví người chơi tự ký, backend xác minh đúng program/pool của từng báo giá rồi gửi RPC.
+- Swap intent, trạng thái và chữ ký được lưu trong PostgreSQL để chống gửi trùng và đối soát. Lịch sử token cũ được giữ trong cơ sở dữ liệu; token cũ không còn nằm trong luồng sản phẩm hiện tại.
+- Mainnet chưa được bật cho người dùng. Nhánh Jupiter trong mã cần API key và kiểm thử riêng trước khi bật.
+- Player, session và battle detail vẫn dùng RAM; reward eligibility và claim được lưu bền vững trong PostgreSQL.
+- Marketplace/P2P chặn thao tác ghi bằng 503 cho đến khi có escrow.
 
-Chi tiết: [Blockchain](docs/blockchain.md), [HKDV token](docs/game-token.md), [Reward distributor](docs/reward-distributor.md), [API](docs/api.md), [Kiến trúc](docs/architecture.md).
+Chi tiết: [DeFi](docs/defi.md), [Blockchain](docs/blockchain.md), [API](docs/api.md), [Kiến trúc](docs/architecture.md). Hồ sơ token và distributor cũ nằm trong [tài liệu lưu trữ](docs/game-token.md).

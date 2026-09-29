@@ -51,8 +51,8 @@ def test_devnet_config_uses_executable_raydium_provider(client):
     assert response.json()["network"] == "devnet"
     assert response.json()["provider"] == "raydium"
     assert response.json()["supports_execution"] is True
-    assert response.json()["pool_id"] == "6dg1ELPzBmmqs7UDTr8pAZmGNQY9XymEDo6KQx8h4J2r"
-    assert {token["symbol"] for token in response.json()["tokens"]} == {"SOL", "HKDV"}
+    assert set(response.json()["pools"]) == {"USDC", "USDT"}
+    assert {token["symbol"] for token in response.json()["tokens"]} == {"SOL", "USDC", "USDT"}
 
 
 def test_dex_order_requires_wallet_session_and_returns_executable_quote(client):
@@ -61,7 +61,7 @@ def test_dex_order_requires_wallet_session_and_returns_executable_quote(client):
     body = {
         "wallet": wallet,
         "input_symbol": "SOL",
-        "output_symbol": "HKDV",
+        "output_symbol": "USDC",
         "amount": "1000000000",
         "slippage_bps": 50,
         "idempotency_key": "dex-test-order-1",
@@ -83,7 +83,7 @@ def test_dex_rejects_another_wallet_and_invalid_pair(client):
     body = {
         "wallet": another_wallet,
         "input_symbol": "SOL",
-        "output_symbol": "HKDV",
+        "output_symbol": "USDC",
         "amount": "1",
         "idempotency_key": "dex-test-order-2",
     }
@@ -111,12 +111,12 @@ def test_mock_provider_quotes_both_directions_without_transaction():
 def test_jupiter_provider_without_key_is_reported_unavailable_without_breaking_startup():
     provider = JupiterDexProvider("", "https://api.jup.ag/swap/v2")
     assert provider.supports_execution is False
-    tokens = token_registry("mainnet-beta", str(Keypair().pubkey()))
+    tokens = token_registry("mainnet-beta")
     with pytest.raises(Exception, match="JUPITER_API_KEY"):
         provider.get_order(DexOrderRequestData(
             wallet=str(Keypair().pubkey()),
             input_token=tokens["SOL"],
-            output_token=tokens["HKDV"],
+            output_token=tokens["USDC"],
             amount="1",
             slippage_bps=50,
         ))
@@ -124,14 +124,14 @@ def test_jupiter_provider_without_key_is_reported_unavailable_without_breaking_s
 
 def test_jupiter_provider_maps_order_and_execute_contract():
     requests = []
-    mainnet_hkdv_mint = str(Keypair().pubkey())
+    mainnet_usdc_mint = token_registry("mainnet-beta")["USDC"].mint
 
     def handler(request: httpx.Request):
         requests.append(request)
         assert request.headers["x-api-key"] == "test-key"
         if request.url.path.endswith("/order"):
             assert request.url.params["inputMint"] == SOL_MINT
-            assert request.url.params["outputMint"] == mainnet_hkdv_mint
+            assert request.url.params["outputMint"] == mainnet_usdc_mint
             assert request.url.params["slippageBps"] == "50"
             return httpx.Response(200, json={
                 "requestId": "request_123",
@@ -155,11 +155,11 @@ def test_jupiter_provider_maps_order_and_execute_contract():
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     provider = JupiterDexProvider("test-key", "https://api.jup.ag/swap/v2", client)
-    tokens = token_registry("mainnet-beta", mainnet_hkdv_mint)
+    tokens = token_registry("mainnet-beta")
     order = provider.get_order(DexOrderRequestData(
         wallet=str(Keypair().pubkey()),
         input_token=tokens["SOL"],
-        output_token=tokens["HKDV"],
+        output_token=tokens["USDC"],
         amount="1000000000",
         slippage_bps=50,
     ))

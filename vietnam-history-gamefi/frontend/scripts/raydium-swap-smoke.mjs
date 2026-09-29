@@ -13,10 +13,12 @@ import {
 import { Connection, Keypair, PublicKey, VersionedTransaction } from '@solana/web3.js';
 import BN from 'bn.js';
 
-const POOL_ID = '6dg1ELPzBmmqs7UDTr8pAZmGNQY9XymEDo6KQx8h4J2r';
+const POOLS = {
+  USDC: { pool: 'FeRts7d5DfXKXq1hGMkeiGEHayDdjsmSyJ41rHVcKo8t', mint: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU' },
+  USDT: { pool: 'Bw9gaeKqQy5aTpi1BiSdV2p21REATtVXDdhjPUFjgq6N', mint: '9jWfcfEZToquBQmkoEViNSCt72veXwcvRGFQERXRjEk1' },
+};
 const PROGRAM_ID = 'DRaycpLY18LhpbydsBWbVJtxpNv9oXPgjRSfpF2bWpYb';
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
-const HKDV_MINT = '45kZL6u62pbEmLiiZuUeuPWcotqZb8DLMmaPD5tNs1qm';
 const DEVNET_GENESIS = 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG';
 
 function argumentsMap() {
@@ -37,7 +39,10 @@ function argumentsMap() {
 async function main() {
   const args = argumentsMap();
   const rpc = String(args.get('--rpc') || 'https://api.devnet.solana.com');
-  const direction = String(args.get('--direction') || 'sol-to-hkdv');
+  const direction = String(args.get('--direction') || 'sol-to-token');
+  const symbol = String(args.get('--token') || 'USDC').toUpperCase();
+  const pair = POOLS[symbol];
+  if (!pair || !['sol-to-token', 'token-to-sol'].includes(direction)) throw new Error('Use --token USDC|USDT and --direction sol-to-token|token-to-sol');
   const inputAmount = new BN(String(args.get('--amount') || '1000000'));
   const slippageBps = Number(args.get('--slippage-bps') || 100);
   const submit = args.has('--submit-devnet');
@@ -66,9 +71,12 @@ async function main() {
     blockhashCommitment: 'confirmed',
     urlConfigs: DEV_API_URLS,
   });
-  const { poolInfo, poolKeys, rpcData } = await raydium.cpmm.getPoolInfoFromRpc(POOL_ID);
-  if (poolInfo.programId !== PROGRAM_ID) throw new Error('Unexpected Raydium program');
-  const inputMint = direction === 'sol-to-hkdv' ? WSOL_MINT : HKDV_MINT;
+  const { poolInfo, poolKeys, rpcData } = await raydium.cpmm.getPoolInfoFromRpc(pair.pool);
+  if (poolInfo.programId !== PROGRAM_ID || new Set([poolInfo.mintA.address, poolInfo.mintB.address]).size !== 2
+      || ![WSOL_MINT, pair.mint].every((mint) => [poolInfo.mintA.address, poolInfo.mintB.address].includes(mint))) {
+    throw new Error('Unexpected Raydium pool or mint');
+  }
+  const inputMint = direction === 'sol-to-token' ? WSOL_MINT : pair.mint;
   const baseIn = inputMint === poolInfo.mintA.address;
   const creatorFeeOnInput = rpcData.feeOn === FeeOn.BothToken || rpcData.feeOn === FeeOn.OnlyTokenB;
   const swapResult = CurveCalculator.swapBaseInput(
@@ -93,11 +101,13 @@ async function main() {
   });
   if (!(built.transaction instanceof VersionedTransaction)) throw new Error('Expected a versioned transaction');
   const keys = built.transaction.message.staticAccountKeys.map((key) => key.toBase58());
-  if (keys[0] !== ownerAddress.toBase58() || !keys.includes(POOL_ID) || !keys.includes(PROGRAM_ID)) {
+  if (keys[0] !== ownerAddress.toBase58() || !keys.includes(pair.pool) || !keys.includes(PROGRAM_ID)) {
     throw new Error('Built transaction does not target the expected owner and pool');
   }
   const metadata = {
     owner: ownerAddress.toBase58(),
+    token: symbol,
+    pool: pair.pool,
     direction,
     input_amount: inputAmount.toString(),
     quoted_output_amount: quotedOutputAmount,

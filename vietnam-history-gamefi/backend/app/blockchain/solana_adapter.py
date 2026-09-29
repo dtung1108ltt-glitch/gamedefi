@@ -15,6 +15,7 @@ from solders.keypair import Keypair
 from solders.message import Message
 from solders.pubkey import Pubkey
 from solders.system_program import ID as SYSTEM_PROGRAM_ID
+from solders.system_program import TransferParams, transfer
 from solders.transaction import Transaction
 
 from app.blockchain.borsh_utils import BorshReader, anchor_discriminator
@@ -29,6 +30,7 @@ from app.core.config import Settings
 
 SPL_TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 ASSOCIATED_TOKEN_PROGRAM_ID = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+MEMO_PROGRAM_ID = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
 
 
 class SolanaAdapterError(RuntimeError):
@@ -54,6 +56,13 @@ class SolanaAdapter(BlockchainAdapter):
         if not isinstance(result, str):
             raise SolanaAdapterError("RPC không trả genesis hash hợp lệ")
         return result
+
+    def get_native_balance(self, wallet: str) -> int:
+        result = self._rpc("getBalance", [wallet, {"commitment": "confirmed"}])
+        try:
+            return int(result["value"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise SolanaAdapterError("RPC không trả số dư SOL hợp lệ") from exc
 
     def _program_id(self) -> Pubkey:
         try:
@@ -333,6 +342,19 @@ class SolanaAdapter(BlockchainAdapter):
             raise SolanaAdapterError("Reward distributor keypair không khớp authority on-chain")
         return keypair
 
+    def _load_sol_reward_signer(self) -> Keypair:
+        if self.s.sol_reward_signer_keypair_base64:
+            try:
+                raw = base64.b64decode(self.s.sol_reward_signer_keypair_base64, validate=True)
+                keypair = Keypair.from_bytes(raw)
+            except (ValueError, TypeError, binascii.Error) as exc:
+                raise SolanaAdapterError("SOL_REWARD_SIGNER_KEYPAIR_BASE64 không hợp lệ") from exc
+        else:
+            keypair = self._load_reward_distributor_keypair()
+        if str(keypair.pubkey()) != self.s.sol_reward_signer_address:
+            raise SolanaAdapterError("Ví ký thưởng SOL không khớp địa chỉ đã cấu hình")
+        return keypair
+
     def prepare_reward(
         self, recipient: str, amount: int, claim_id: bytes
     ) -> PreparedRewardSubmission:
@@ -376,6 +398,43 @@ class SolanaAdapter(BlockchainAdapter):
         return PreparedRewardSubmission(
             signature=str(transaction.signatures[0]),
             receipt_address=str(receipt),
+            signed_transaction=base64.b64encode(bytes(transaction)).decode("ascii"),
+            last_valid_block_height=last_valid_block_height,
+        )
+
+    def prepare_sol_reward(
+        self, recipient: str, amount: int, claim_id: bytes
+    ) -> PreparedRewardSubmission:
+        if self.s.solana_network != "devnet":
+            raise SolanaAdapterError("Thưởng SOL hiện chỉ hỗ trợ Devnet")
+        if len(claim_id) != 32 or amount <= 0 or amount > self.s.reward_max_lamports:
+            raise SolanaAdapterError("Số lượng SOL thưởng hoặc claim ID không hợp lệ")
+        try:
+            recipient_key = Pubkey.from_string(recipient)
+        except ValueError as exc:
+            raise SolanaAdapterError("Ví nhận SOL không hợp lệ") from exc
+        signer = self._load_sol_reward_signer()
+        if self.get_native_balance(str(signer.pubkey())) < amount + 10_000:
+            raise SolanaAdapterError("Ví thưởng SOL Devnet không đủ số dư")
+        latest = self._rpc("getLatestBlockhash", [{"commitment": "confirmed"}])
+        try:
+            value = latest["value"]
+            blockhash = Hash.from_string(value["blockhash"])
+            last_valid_block_height = int(value["lastValidBlockHeight"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise SolanaAdapterError("RPC không trả recent blockhash hợp lệ") from exc
+        memo = Instruction(
+            Pubkey.from_string(MEMO_PROGRAM_ID),
+            b"gamefi-sol-reward:" + claim_id.hex().encode("ascii"),
+            [],
+        )
+        payment = transfer(TransferParams(
+            from_pubkey=signer.pubkey(), to_pubkey=recipient_key, lamports=amount,
+        ))
+        transaction = Transaction([signer], Message([payment, memo], signer.pubkey()), blockhash)
+        return PreparedRewardSubmission(
+            signature=str(transaction.signatures[0]),
+            receipt_address=None,
             signed_transaction=base64.b64encode(bytes(transaction)).decode("ascii"),
             last_valid_block_height=last_valid_block_height,
         )

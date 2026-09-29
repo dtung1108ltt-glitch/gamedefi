@@ -6,7 +6,6 @@ import {
   DailyQuestSummary,
   Faction,
   FactionRegisterRequest,
-  GameTokenInfo,
   LeaderboardEntry,
   MarketplaceListing,
   NonceResponse,
@@ -500,8 +499,8 @@ class GameApiService {
   }
 
 
-  async getGameToken(): Promise<GameTokenInfo> {
-    const res = await fetch(`${API_BASE_URL}/blockchain/solana/game-token`);
+  async getSolRewardWallet(): Promise<{ address: string; balance_lamports: number | null; configured: boolean; active: boolean }> {
+    const res = await fetch(`${API_BASE_URL}/blockchain/solana/reward-wallet`);
     if (!res.ok) throw await apiError(res);
     return await res.json();
   }

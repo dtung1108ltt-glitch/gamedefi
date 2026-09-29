@@ -201,7 +201,7 @@ class QuestOut(BaseModel):
     completed_battles: int = 0
     reward_gold: int = 1000
     reward_rice: int = 500
-    reward_hkdv_base_units: int = 0
+    reward_sol_lamports: int = 0
     reward_claim_status: str | None = None
 
 
@@ -334,6 +334,7 @@ class RewardOut(BaseModel):
     source_id: str
     battle_id: str | None = None
     amount: int
+    asset_symbol: str = "SOL"
     tx_digest: str | None = None
     receipt_address: str | None = None
     status: str

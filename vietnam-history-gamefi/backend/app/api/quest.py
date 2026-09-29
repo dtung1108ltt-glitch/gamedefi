@@ -96,7 +96,7 @@ def list_player_quests(
             **quest,
             "completed": completed_battles >= quest["required_battles"],
             "completed_battles": completed_battles,
-            "reward_hkdv_base_units": request.app.state.settings.quest_reward_amount_base_units,
-            "reward_claim_status": claim.status if claim else None,
+            "reward_sol_lamports": 0 if claim and claim.asset_symbol != "SOL" else request.app.state.settings.quest_reward_lamports,
+            "reward_claim_status": "legacy_claimed" if claim and claim.asset_symbol != "SOL" else (claim.status if claim else None),
         }))
     return results

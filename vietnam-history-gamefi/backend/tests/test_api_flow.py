@@ -215,6 +215,8 @@ def test_reward_requires_owned_winning_battle_and_is_single_use(client, adapter)
     assert payload["battle_id"] == battle_id
     assert payload["source_type"] == "battle"
     assert payload["status"] == "confirmed"
+    assert payload["asset_symbol"] == "SOL"
+    assert payload["amount"] == 100_000
 
     repeated = client.post("/rewards/claim", headers=headers, json={"wallet": wallet, "battle_id": battle_id})
     assert repeated.status_code == 200
@@ -231,28 +233,6 @@ def test_solana_login_uses_base58_signature(client):
     assert player["chain"] == "solana"
     assert player["wallet"] == wallet
     assert player["access_token"]
-
-
-def test_game_token_config_is_verified(client):
-    response = client.get("/blockchain/solana/game-token")
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["symbol"] == "HKDV"
-    assert payload["network"] == "devnet"
-    assert payload["verified"] is True
-    assert payload["on_chain"]["mint_authority"] is None
-    assert payload["on_chain"]["freeze_authority"] is None
-
-def test_reward_distributor_config_is_verified(client):
-    response = client.get("/blockchain/solana/reward-distributor")
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["verified"] is True
-    assert payload["active"] is True
-    assert payload["mint"] == "45kZL6u62pbEmLiiZuUeuPWcotqZb8DLMmaPD5tNs1qm"
-    assert payload["on_chain"]["paused"] is False
-    assert payload["on_chain"]["claims_count"] == 0
-    assert payload["vault_on_chain"]["amount"] == "1000000000000"
 
 
 def test_completed_quest_claim_is_idempotent(client, adapter):
@@ -275,6 +255,8 @@ def test_completed_quest_claim_is_idempotent(client, adapter):
     assert first.status_code == 200, first.text
     assert first.json()["source_type"] == "quest"
     assert first.json()["status"] == "confirmed"
+    assert first.json()["asset_symbol"] == "SOL"
+    assert first.json()["amount"] == 200_000
     repeated = client.post(
         "/rewards/quests/claim",
         headers=headers,

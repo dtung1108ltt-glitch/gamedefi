@@ -7,7 +7,7 @@ from dataclasses import dataclass
 SOL_MINT = "So11111111111111111111111111111111111111112"
 MAINNET_USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 DEVNET_USDC_MINT = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
-HKDV_MINT = "45kZL6u62pbEmLiiZuUeuPWcotqZb8DLMmaPD5tNs1qm"
+DEVNET_USDT_MINT = "9jWfcfEZToquBQmkoEViNSCt72veXwcvRGFQERXRjEk1"
 
 
 class DexProviderError(RuntimeError):
@@ -64,13 +64,12 @@ class DexExecution:
     error: str | None = None
 
 
-def token_registry(network: str, hkdv_mint: str | None = None) -> dict[str, DexToken]:
-    if network in {"devnet", "mainnet-beta"}:
-        if network == "mainnet-beta" and (not hkdv_mint or hkdv_mint == HKDV_MINT):
-            raise DexProviderError("Cần cấu hình mint HKDV Mainnet trước khi mở DEX")
+def token_registry(network: str) -> dict[str, DexToken]:
+    if network == "devnet":
         return {
             "SOL": DexToken("SOL", "Solana", SOL_MINT, 9),
-            "HKDV": DexToken("HKDV", "H\u00e0o Kh\u00ed \u0110\u1ea1i Vi\u1ec7t", hkdv_mint or HKDV_MINT, 6),
+            "USDC": DexToken("USDC", "USDC thử (Devnet)", DEVNET_USDC_MINT, 6),
+            "USDT": DexToken("USDT", "USDT thử (Devnet)", DEVNET_USDT_MINT, 6),
         }
     usdc_mint = MAINNET_USDC_MINT if network == "mainnet-beta" else DEVNET_USDC_MINT
     return {

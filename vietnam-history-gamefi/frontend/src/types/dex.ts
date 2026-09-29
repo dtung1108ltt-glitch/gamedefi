@@ -1,7 +1,7 @@
 import type { DexTokenSymbol } from '../services/dexBalances';
 
 export interface QuickSwapIntent {
-  fromToken: 'SOL' | 'HKDV';
+  fromToken: DexTokenSymbol;
   amount: string;
 }
 
@@ -50,7 +50,7 @@ export interface DexConfig {
   provider: 'mock' | 'raydium' | 'jupiter';
   supports_execution: boolean;
   tokens: { symbol: DexTokenSymbol; mint: string; decimals: number }[];
-  pool_id: string | null;
+  pools: Record<string, string>;
   program_id: string | null;
 }
 

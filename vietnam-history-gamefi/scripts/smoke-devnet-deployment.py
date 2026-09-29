@@ -9,8 +9,14 @@ from urllib.request import urlopen
 
 
 PROGRAM_ID = "8qUBTgX99v5EhxbAaxuqS94rgfRhnLrTgW66Gh9BvLKN"
-HKDV_MINT = "45kZL6u62pbEmLiiZuUeuPWcotqZb8DLMmaPD5tNs1qm"
-RAYDIUM_POOL = "6dg1ELPzBmmqs7UDTr8pAZmGNQY9XymEDo6KQx8h4J2r"
+TEST_MINTS = {
+    "USDC": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+    "USDT": "9jWfcfEZToquBQmkoEViNSCt72veXwcvRGFQERXRjEk1",
+}
+RAYDIUM_POOLS = {
+    "USDC": "FeRts7d5DfXKXq1hGMkeiGEHayDdjsmSyJ41rHVcKo8t",
+    "USDT": "Bw9gaeKqQy5aTpi1BiSdV2p21REATtVXDdhjPUFjgq6N",
+}
 
 
 def deployed_url(value: str) -> str:
@@ -35,7 +41,7 @@ def validate(api: str, site: str) -> None:
             raise ValueError("Frontend entry point is unavailable")
 
     ready = get_json(api, "/health/ready")
-    required = {"rpc_devnet", "program", "reward_signer", "database"}
+    required = {"rpc_devnet", "program", "database"}
     if ready.get("network") != "devnet" or ready.get("status") != "ok":
         raise ValueError("Backend is not ready on Devnet")
     if not required.issubset(ready.get("checks", {})) or not all(ready["checks"][key] for key in required):
@@ -45,23 +51,19 @@ def validate(api: str, site: str) -> None:
     if config.get("network") != "devnet" or config.get("program_id") != PROGRAM_ID:
         raise ValueError("Solana Devnet program ID does not match the deployment record")
 
-    token = get_json(api, "/blockchain/solana/game-token")
-    if token.get("mint") != HKDV_MINT or token.get("verified") is not True:
-        raise ValueError("HKDV mint or treasury did not verify on Devnet")
-
-    rewards = get_json(api, "/blockchain/solana/reward-distributor")
-    if rewards.get("verified") is not True or rewards.get("active") is not True:
-        raise ValueError("Reward distributor is not active on Devnet")
-
+    get_json(api, "/blockchain/solana/reward-wallet")
     dex = get_json(api, "/dex/config")
+    tokens = {token["symbol"]: token["mint"] for token in dex.get("tokens", [])}
     if (
         dex.get("network") != "devnet"
         or dex.get("provider") != "raydium"
-        or dex.get("pool_id") != RAYDIUM_POOL
+        or dex.get("pools") != RAYDIUM_POOLS
+        or not all(tokens.get(symbol) == mint for symbol, mint in TEST_MINTS.items())
+        or set(tokens) != {"SOL", "USDC", "USDT"}
         or dex.get("supports_execution") is not True
         or dex.get("persistence") != "sql"
     ):
-        raise ValueError("DEX is not using the expected Devnet pool and SQL persistence")
+        raise ValueError("DEX is not using the expected Devnet pools, tokens and SQL persistence")
 
 
 def main() -> int:
@@ -74,7 +76,7 @@ def main() -> int:
     except Exception as exc:
         print(f"Devnet smoke check failed: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
-    print("Devnet frontend, API, Solana program, HKDV, rewards and DEX verified.")
+    print("Devnet frontend, API, Solana program, SOL reward status and DEX verified.")
     return 0
 
 

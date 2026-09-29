@@ -7,9 +7,10 @@ from solders.hash import Hash
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from solders.transaction import Transaction
+from solders.system_program import ID as SYSTEM_PROGRAM_ID
 
 from app.blockchain.borsh_utils import anchor_discriminator
-from app.blockchain.solana_adapter import SolanaAdapter
+from app.blockchain.solana_adapter import MEMO_PROGRAM_ID, SolanaAdapter, SolanaAdapterError
 from app.core.config import Settings
 
 
@@ -56,6 +57,48 @@ def test_prepares_and_submits_distributor_signed_reward(tmp_path):
     assert prepared.last_valid_block_height == 999
     assert adapter.submit_reward(prepared) == prepared.signature
     assert calls == ["getLatestBlockhash", "sendTransaction"]
+
+
+def test_prepares_native_sol_reward_with_exact_recipient_amount_and_claim(tmp_path):
+    signer = Keypair()
+    keypair_path = tmp_path / "reward-keypair.json"
+    keypair_path.write_text(json.dumps(list(bytes(signer))))
+    def handler(request):
+        body = json.loads(request.content)
+        if body["method"] == "getBalance":
+            return httpx.Response(200, json={"result": {"value": 1_000_000_000}})
+        if body["method"] == "getLatestBlockhash":
+            return httpx.Response(200, json={"result": {"value": {
+                "blockhash": str(Hash.new_unique()), "lastValidBlockHeight": 999,
+            }}})
+        raise AssertionError(body["method"])
+    settings = Settings(
+        reward_distributor_authority=str(signer.pubkey()),
+        sol_reward_signer_address=str(signer.pubkey()),
+        reward_distributor_keypair_path=str(keypair_path),
+    )
+    adapter = SolanaAdapter(settings, httpx.Client(transport=httpx.MockTransport(handler)))
+    claim_id = bytes(range(32))
+    prepared = adapter.prepare_sol_reward(RECIPIENT, 100_000, claim_id)
+    transaction = Transaction.from_bytes(base64.b64decode(prepared.signed_transaction))
+    assert transaction.verify_with_results() == [True]
+    assert prepared.receipt_address is None
+    keys = transaction.message.account_keys
+    payment, memo = transaction.message.instructions
+    assert keys[payment.program_id_index] == SYSTEM_PROGRAM_ID
+    assert keys[payment.accounts[0]] == signer.pubkey()
+    assert keys[payment.accounts[1]] == Pubkey.from_string(RECIPIENT)
+    assert bytes(payment.data) == (2).to_bytes(4, "little") + (100_000).to_bytes(8, "little")
+    assert keys[memo.program_id_index] == Pubkey.from_string(MEMO_PROGRAM_ID)
+    assert bytes(memo.data) == b"gamefi-sol-reward:" + claim_id.hex().encode()
+
+    adapter.s = settings.model_copy(update={"solana_network": "mainnet-beta"})
+    try:
+        adapter.prepare_sol_reward(RECIPIENT, 100_000, claim_id)
+    except SolanaAdapterError as exc:
+        assert "Devnet" in str(exc)
+    else:
+        raise AssertionError("Mainnet reward must be blocked")
 
 
 def test_reads_exact_reward_receipt():

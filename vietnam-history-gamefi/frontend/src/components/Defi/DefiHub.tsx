@@ -24,7 +24,7 @@ import {
 } from '../../data/defi';
 import { DexSwapPanel } from './DexSwapPanel';
 import type { QuickSwapIntent } from '../../types/dex';
-import { GameTokenCard } from './GameTokenCard';
+import { SolRewardCard } from './SolRewardCard';
 
 interface DefiHubProps {
   player: Player;
@@ -76,11 +76,11 @@ export const DefiHub: React.FC<DefiHubProps> = ({ player, onBack, onPlayDrum, in
             <span>Hào Khí Đại Việt · Khu Giao Thương</span>
           </div>
           <h2 className="font-display text-3xl font-black text-imperial-lightgold sm:text-4xl">
-            {module === 'dex' ? 'DEX HKDV / SOL' : 'Kinh Tế On-Chain'}
+            {module === 'dex' ? 'DEX SOL Devnet' : 'Kinh Tế On-Chain'}
           </h2>
           <p className="mt-3 max-w-[65ch] text-sm leading-relaxed text-slate-300">
             {module === 'dex'
-              ? 'Đổi SOL và HKDV bằng ví Solana của bạn. Xem rõ tỷ giá, phí và số nhận tối thiểu trước khi ký.'
+              ? 'Đổi SOL với USDC hoặc USDT thử bằng ví Solana. Xem tỷ giá, phí và số nhận tối thiểu trước khi ký.'
               : 'Các tiện ích kinh tế trong game. Các module ngoài DEX hiện là bản minh họa và chưa gửi giao dịch.'}
           </p>
         </div>
@@ -123,11 +123,11 @@ export const DefiHub: React.FC<DefiHubProps> = ({ player, onBack, onPlayDrum, in
               <span>{active.principle}</span>
             </div>
             <ul className="mt-5 space-y-2 text-xs text-slate-400">
-              <li className="flex items-center space-x-2"><Lock className="w-3.5 h-3.5 text-imperial-gold" /><span>Ví ký DEX; service signer riêng chỉ được phát reward từ vault.</span></li>
+              <li className="flex items-center space-x-2"><Lock className="w-3.5 h-3.5 text-imperial-gold" /><span>Ví tự ký DEX; phần thưởng SOL Devnet do ví phân phối gửi.</span></li>
               <li className="flex items-center space-x-2"><ShieldCheck className="w-3.5 h-3.5 text-imperial-gold" /><span>Trạng thái đọc được trước khi xác nhận.</span></li>
               <li className="flex items-center space-x-2"><Wallet className="w-3.5 h-3.5 text-imperial-gold" /><span>Ngôn ngữ tiếng Việt, số liệu đơn giản, phí hiển thị trước.</span></li>
             </ul>
-            <GameTokenCard player={player} />
+            <SolRewardCard player={player} />
           </div>
         )}
 

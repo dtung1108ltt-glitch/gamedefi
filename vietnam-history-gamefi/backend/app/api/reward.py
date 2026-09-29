@@ -35,6 +35,7 @@ def reward_out(record: RewardClaimRecord) -> RewardOut:
         source_id=record.source_id,
         battle_id=record.source_id if record.source_type == "battle" else None,
         amount=record.amount,
+        asset_symbol=record.asset_symbol,
         tx_digest=record.tx_signature,
         receipt_address=record.receipt_address,
         status=record.status,
@@ -57,17 +58,21 @@ def submit_event_reward(
     repository = request.app.state.reward_claims
     adapter = request.app.state.resolver.get("solana")
     try:
-        claim, _created = repository.reserve_claim(event=event, amount=amount)
+        if settings.solana_network != "devnet":
+            raise HTTPException(status_code=503, detail="Thưởng SOL chỉ hoạt động trên Devnet")
+        claim, _created = repository.reserve_claim(event=event, amount=amount, asset_symbol="SOL")
+        if claim.asset_symbol != "SOL":
+            return claim
         if claim.status in {"submitted", "submission_unknown"}:
             try:
-                reconcile_claim(repository, adapter, claim, settings.reward_distributor_authority)
+                reconcile_claim(repository, adapter, claim, settings.sol_reward_signer_address,
+                                settings.reward_distributor_authority)
             except SolanaAdapterError as exc:
                 repository.mark_submission_uncertain(claim.claim_id, str(exc))
             current = repository.get_claim(claim.claim_id) or claim
             if (
                 current.status == "submission_unknown"
                 and current.tx_signature
-                and current.receipt_address
                 and current.signed_transaction
                 and current.last_valid_block_height is not None
             ):
@@ -89,7 +94,7 @@ def submit_event_reward(
         claim, acquired = repository.acquire_submission(claim.claim_id)
         if not acquired:
             return claim
-        prepared = adapter.prepare_reward(
+        prepared = adapter.prepare_sol_reward(
             claim.wallet,
             claim.amount,
             bytes.fromhex(claim.claim_id),
@@ -108,7 +113,8 @@ def submit_event_reward(
             repository.mark_submission_uncertain(claim.claim_id, str(exc))
         current = repository.get_claim(claim.claim_id) or claim
         try:
-            reconcile_claim(repository, adapter, current, settings.reward_distributor_authority)
+            reconcile_claim(repository, adapter, current, settings.sol_reward_signer_address,
+                            settings.reward_distributor_authority)
         except SolanaAdapterError as exc:
             repository.mark_submission_uncertain(claim.claim_id, str(exc))
         return repository.get_claim(claim.claim_id) or current
@@ -148,11 +154,11 @@ def claim_battle_reward(
     if event.wallet != normalize_wallet(principal.chain, principal.wallet):
         raise HTTPException(status_code=403, detail="Trận đánh không thuộc về ví này")
     if not event.eligible:
-        raise HTTPException(status_code=409, detail="Chỉ chiến thắng mới đủ điều kiện nhận HKDV")
+        raise HTTPException(status_code=409, detail="Chỉ chiến thắng mới đủ điều kiện nhận SOL")
     return reward_out(submit_event_reward(
         request=request,
         event=event,
-        amount=request.app.state.settings.battle_reward_amount_base_units,
+        amount=request.app.state.settings.battle_reward_lamports,
     ))
 
 
@@ -197,7 +203,7 @@ def claim_quest_reward(
     return reward_out(submit_event_reward(
         request=request,
         event=event,
-        amount=request.app.state.settings.quest_reward_amount_base_units,
+        amount=request.app.state.settings.quest_reward_lamports,
     ))
 
 
@@ -222,7 +228,8 @@ def list_rewards(
             adapter,
             network=settings.solana_network,
             wallet=normalized,
-            distributor=settings.reward_distributor_authority,
+            distributor=settings.sol_reward_signer_address,
+            legacy_distributor=settings.reward_distributor_authority,
         )
     except SolanaAdapterError:
         # History remains available from PostgreSQL while the public RPC is degraded.

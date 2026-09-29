@@ -28,7 +28,7 @@ class TransactionInfo:
 @dataclass(frozen=True)
 class PreparedRewardSubmission:
     signature: str
-    receipt_address: str
+    receipt_address: str | None
     signed_transaction: str
     last_valid_block_height: int
 

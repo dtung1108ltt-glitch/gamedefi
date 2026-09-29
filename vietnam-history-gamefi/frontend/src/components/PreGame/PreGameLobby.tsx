@@ -81,7 +81,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
               <button type="button" className="lobby-next-link" style={{ background: 'linear-gradient(135deg, #2a1810, #3d2314)', borderColor: '#c89b5d' }} onClick={() => openWithDrum(onOpenDailyQuests)}><Trophy aria-hidden="true" style={{ color: '#f3d393' }} /><span><strong style={{ color: '#f5d08b' }}>Quest Center</strong><small>Nhiệm vụ theo ngày · tuần · tháng · năm</small></span><ArrowRight aria-hidden="true" /></button>
             )}
             <button type="button" className="lobby-next-link" onClick={() => openWithDrum(onOpenMarketplace)}><ShoppingBag aria-hidden="true" /><span><strong>Marketplace</strong><small>Xem trước Chợ Tướng · giao dịch tạm khóa</small></span><ArrowRight aria-hidden="true" /></button>
-            <button type="button" className="lobby-next-link" onClick={() => openWithDrum(onOpenDefiHub)}><ArrowLeftRight aria-hidden="true" /><span><strong>DEX HKDV / SOL</strong><small>{player.is_guest ? 'Kết nối ví để giao dịch' : 'Giao thương trên Solana Devnet'}</small></span><ArrowRight aria-hidden="true" /></button>
+            <button type="button" className="lobby-next-link" onClick={() => openWithDrum(onOpenDefiHub)}><ArrowLeftRight aria-hidden="true" /><span><strong>DEX SOL / Token thử</strong><small>{player.is_guest ? 'Kết nối ví để giao dịch' : 'Giao thương trên Solana Devnet'}</small></span><ArrowRight aria-hidden="true" /></button>
           </section>
         </div>
       </div>

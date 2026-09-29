@@ -64,7 +64,7 @@ def order_body(wallet: str, key: str = "phase3-order-key") -> dict:
     return {
         "wallet": wallet,
         "input_symbol": "SOL",
-        "output_symbol": "HKDV",
+        "output_symbol": "USDC",
         "amount": "1",
         "slippage_bps": 50,
         "idempotency_key": key,

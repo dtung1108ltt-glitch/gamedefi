@@ -25,7 +25,7 @@ import {
 import { formatBaseUnits, uiAmountToBaseUnits } from '../../services/dexMath';
 import { buildRaydiumSwapTransaction } from '../../services/raydiumSwap';
 import type { DexConfig, DexExecution, DexOrder, DexSwapHistory, QuickSwapIntent } from '../../types/dex';
-import { GameTokenCard } from './GameTokenCard';
+import { SolRewardCard } from './SolRewardCard';
 
 interface DexSwapPanelProps {
   player: Player;
@@ -36,11 +36,11 @@ interface DexSwapPanelProps {
 type BalanceStatus = 'loading' | 'ready' | 'error' | 'wallet-required';
 type RequestStatus = 'idle' | 'quoting' | 'signing' | 'executing';
 
-const EMPTY_BALANCES: DexBalances = { SOL: '0', HKDV: '0', USDC: '0' };
-const QUOTE_TOKEN: DexTokenSymbol = SOLANA_NETWORK === 'devnet' || SOLANA_NETWORK === 'mainnet-beta' ? 'HKDV' : 'USDC';
+const EMPTY_BALANCES: DexBalances = { SOL: '0', USDC: '0', USDT: '0' };
+const QUOTE_TOKEN: DexTokenSymbol = 'USDC';
 
 function tokenLogo(symbol: DexTokenSymbol): string | null {
-  return symbol === 'HKDV' ? '/drum_icon.svg' : symbol === 'SOL' ? '/solana-token.svg' : null;
+  return symbol === 'SOL' ? '/solana-token.svg' : symbol === 'USDC' ? '/usdc-token.svg' : '/usdt-token.svg';
 }
 
 function newIdempotencyKey(): string {
@@ -64,7 +64,7 @@ function apiError(error: unknown): string {
 
 export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, initialSwap }) => {
   const [fromToken, setFromToken] = useState<DexTokenSymbol>(initialSwap?.fromToken ?? 'SOL');
-  const [toToken, setToToken] = useState<DexTokenSymbol>(initialSwap?.fromToken === 'HKDV' ? 'SOL' : QUOTE_TOKEN);
+  const [toToken, setToToken] = useState<DexTokenSymbol>(initialSwap?.fromToken && initialSwap.fromToken !== 'SOL' ? 'SOL' : QUOTE_TOKEN);
   const [amount, setAmount] = useState(initialSwap?.amount ?? '');
   const [slippageBps, setSlippageBps] = useState(50);
   const [balances, setBalances] = useState<DexBalances>(EMPTY_BALANCES);
@@ -94,9 +94,9 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
     setError(null);
     try {
       const config = await apiService.getDexConfig();
-      const quoteToken = dexTokens().find((item) => item.symbol !== 'SOL');
-      const backendToken = config.tokens.find((item) => item.symbol === quoteToken?.symbol);
-      if (config.network !== SOLANA_NETWORK || !quoteToken?.mint || backendToken?.mint !== quoteToken.mint
+      const matched = tokens.every((token) => token.symbol === 'SOL' || config.tokens.some((backendToken) =>
+        backendToken.symbol === token.symbol && backendToken.mint === token.mint));
+      if (config.network !== SOLANA_NETWORK || !matched
           || (SOLANA_NETWORK === 'mainnet-beta' && config.provider !== 'jupiter')
           || (SOLANA_NETWORK === 'devnet' && config.provider !== 'raydium')) {
         throw new Error('Cấu hình DEX của frontend và backend không khớp mạng hoặc mint token.');
@@ -121,7 +121,9 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
     }
     setHistoryStatus('loading');
     try {
-      setHistory(await apiService.getDexHistory());
+      const activeSymbols = new Set(tokens.map((token) => token.symbol));
+      setHistory((await apiService.getDexHistory(20)).filter((item) =>
+        activeSymbols.has(item.input_symbol) && activeSymbols.has(item.output_symbol)).slice(0, 5));
       setHistoryStatus('ready');
     } catch {
       setHistoryStatus('error');
@@ -262,11 +264,11 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
         </div>
         <div className="border-t border-imperial-border pt-5">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-imperial-gold">Thị trường</p>
-          <h3 className="mt-2 font-display text-lg font-bold text-imperial-lightgold">{QUOTE_TOKEN} / SOL</h3>
+          <h3 className="mt-2 font-display text-lg font-bold text-imperial-lightgold">{SOLANA_NETWORK === 'devnet' ? 'USDC · USDT / SOL' : 'USDC / SOL'}</h3>
           <p className="mt-1 text-xs text-slate-400">{SOLANA_NETWORK === 'devnet' ? 'Raydium CPMM · Devnet' : SOLANA_NETWORK === 'mainnet-beta' ? 'Jupiter · Mainnet' : 'Mạng thử nghiệm'}</p>
-          {dexConfig?.pool_id && (
+          {dexConfig?.pools[toToken === 'SOL' ? fromToken : toToken] && (
             <a
-              href={`https://explorer.solana.com/address/${dexConfig.pool_id}?cluster=${SOLANA_NETWORK}`}
+              href={`https://explorer.solana.com/address/${dexConfig.pools[toToken === 'SOL' ? fromToken : toToken]}?cluster=${SOLANA_NETWORK}`}
               target="_blank"
               rel="noreferrer"
               className="mt-3 inline-flex min-h-11 items-center gap-2 text-xs text-imperial-lightgold underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-imperial-gold"
@@ -276,9 +278,9 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
           )}
         </div>
         <div className="border-t border-imperial-border pt-5">
-          <div className="flex items-center gap-2 text-imperial-lightgold"><Coins className="h-4 w-4" /><h3 className="font-display text-base font-bold">Chiến lợi phẩm HKDV</h3></div>
+          <div className="flex items-center gap-2 text-imperial-lightgold"><Coins className="h-4 w-4" /><h3 className="font-display text-base font-bold">Phần thưởng SOL</h3></div>
           <p className="mt-2 text-xs leading-relaxed text-slate-400">Phần thưởng từ trận đánh và nhiệm vụ có thể dùng tại Khu Giao Thương sau khi được xác nhận.</p>
-          <GameTokenCard player={player} />
+          <SolRewardCard player={player} />
         </div>
       </aside>
 
@@ -286,7 +288,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-imperial-border pb-5">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-imperial-gold">Giao dịch · 01</p>
-            <h3 id="dex-swap-title" className="mt-1 font-display text-xl font-bold text-imperial-lightgold">Đổi SOL ↔ {QUOTE_TOKEN}</h3>
+            <h3 id="dex-swap-title" className="mt-1 font-display text-xl font-bold text-imperial-lightgold">Đổi SOL ↔ {fromToken === 'SOL' ? toToken : fromToken}</h3>
           </div>
           <span className="rounded-full border border-amber-600/40 bg-amber-950/30 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-200">{networkLabel}</span>
         </div>
@@ -329,7 +331,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
                 onChange={(event) => {
                   const symbol = event.target.value as DexTokenSymbol;
                   setFromToken(symbol);
-                  setToToken(symbol === 'SOL' ? QUOTE_TOKEN : 'SOL');
+                  setToToken(symbol === 'SOL' ? (toToken === 'SOL' ? QUOTE_TOKEN : toToken) : 'SOL');
                   setAmount('');
                   clearQuote();
                 }}
@@ -361,9 +363,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
               <span className={`min-w-0 break-all text-2xl font-semibold tabular-nums ${outputDisplay ? 'text-imperial-lightgold' : 'text-slate-500'}`}>
                 {outputDisplay || 'Chưa có báo giá'}
               </span>
-              <span className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300">
-                {tokenLogo(toToken) && <img src={tokenLogo(toToken)!} alt="" className="h-6 w-6 rounded-full" />}{toToken}
-              </span>
+              {fromToken === 'SOL' ? <select value={toToken} onChange={(event) => { setToToken(event.target.value as DexTokenSymbol); clearQuote(); }} aria-label="Token nhận" className="min-h-11 rounded-lg border border-slate-700 bg-imperial-darkred/50 px-3 py-2 text-sm font-bold text-slate-300">{tokens.filter((token) => token.symbol !== 'SOL').map((token) => <option key={token.symbol} value={token.symbol}>{token.symbol}</option>)}</select> : <span className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300"><img src="/solana-token.svg" alt="" className="h-6 w-6 rounded-full" />SOL</span>}
             </div>
           </div>
 
@@ -388,7 +388,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
             <div className={`rounded-xl border p-3 text-[11px] ${order.simulation ? 'border-amber-700/50 bg-amber-950/20' : 'border-emerald-800/50 bg-emerald-950/20'}`}>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-1">
                 <span className={order.simulation ? 'font-bold text-amber-300' : 'font-bold text-emerald-300'}>
-                  {order.simulation ? 'Báo giá mô phỏng' : order.provider === 'raydium' ? 'Raydium HKDV/SOL Devnet' : 'Jupiter HKDV/SOL Mainnet'}
+                  {order.simulation ? 'Báo giá mô phỏng' : order.provider === 'raydium' ? `Raydium SOL/${fromToken === 'SOL' ? toToken : fromToken} Devnet` : 'Jupiter SOL/USDC Mainnet'}
                 </span>
                 <span className="font-mono text-slate-400" title={order.router}>{order.router.slice(0, 6)}…{order.router.slice(-6)} · {order.mode}</span>
               </div>
@@ -493,7 +493,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
             </div>
           ) : history.length === 0 ? (
             <p className="mt-4 text-xs leading-relaxed text-slate-400">
-              {player.is_guest ? 'Kết nối ví Solana để xem lịch sử giao dịch.' : 'Chưa có lệnh nào. Bắt đầu bằng cách nhập số SOL hoặc HKDV ở ô giao dịch.'}
+              {player.is_guest ? 'Kết nối ví Solana để xem lịch sử giao dịch.' : 'Chưa có lệnh nào. Bắt đầu bằng cách nhập số SOL, USDC hoặc USDT ở ô giao dịch.'}
             </p>
           ) : (
             <ul className="mt-4 divide-y divide-imperial-border/70">

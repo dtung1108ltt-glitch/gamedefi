@@ -6,7 +6,7 @@ from solders.pubkey import Pubkey
 
 from app.blockchain.solana_adapter import SPL_TOKEN_PROGRAM_ID
 from app.core.config import Settings
-from app.dex.interface import DexOrderRequestData, HKDV_MINT, SOL_MINT, token_registry
+from app.dex.interface import DexOrderRequestData, SOL_MINT, token_registry
 from app.dex.raydium_provider import RaydiumDexProvider
 
 
@@ -22,13 +22,17 @@ def account(data: bytes, owner: str) -> dict:
     return {"data": [base64.b64encode(data).decode(), "base64"], "owner": owner}
 
 
-def pool_accounts(settings: Settings) -> list[dict]:
+def pool_accounts(settings: Settings, symbol: str = "USDC") -> list[dict]:
+    token = token_registry("devnet")[symbol]
+    config_id = getattr(settings, f"raydium_{symbol.lower()}_config_id")
+    wsol_vault = getattr(settings, f"raydium_{symbol.lower()}_wsol_vault")
+    token_vault = getattr(settings, f"raydium_{symbol.lower()}_token_vault")
     pool = bytearray(637)
-    put_pubkey(pool, 8, settings.raydium_config_id)
-    put_pubkey(pool, 72, settings.raydium_wsol_vault)
-    put_pubkey(pool, 104, settings.raydium_hkdv_vault)
+    put_pubkey(pool, 8, config_id)
+    put_pubkey(pool, 72, wsol_vault)
+    put_pubkey(pool, 104, token_vault)
     put_pubkey(pool, 168, SOL_MINT)
-    put_pubkey(pool, 200, HKDV_MINT)
+    put_pubkey(pool, 200, token.mint)
     pool[389] = 0
 
     config = bytearray(236)
@@ -40,14 +44,14 @@ def pool_accounts(settings: Settings) -> list[dict]:
     wsol = bytearray(165)
     put_pubkey(wsol, 0, SOL_MINT)
     put_u64(wsol, 64, 1_000_000_000)
-    hkdv = bytearray(165)
-    put_pubkey(hkdv, 0, HKDV_MINT)
-    put_u64(hkdv, 64, 100_000_000_000)
+    quote = bytearray(165)
+    put_pubkey(quote, 0, token.mint)
+    put_u64(quote, 64, 100_000_000_000)
     return [
         account(pool, settings.raydium_cpmm_program_id),
         account(config, settings.raydium_cpmm_program_id),
         account(wsol, SPL_TOKEN_PROGRAM_ID),
-        account(hkdv, SPL_TOKEN_PROGRAM_ID),
+        account(quote, SPL_TOKEN_PROGRAM_ID),
     ]
 
 
@@ -74,7 +78,7 @@ def test_raydium_provider_quotes_exact_cpmm_amount_and_submits():
     order = provider.get_order(DexOrderRequestData(
         wallet="oV3Y4Z6DvPvBWGvbgLvfjxHoyVbWZkr1KHmNMHLDA7T",
         input_token=tokens["SOL"],
-        output_token=tokens["HKDV"],
+        output_token=tokens["USDC"],
         amount="1000000",
         slippage_bps=50,
     ))
@@ -83,9 +87,9 @@ def test_raydium_provider_quotes_exact_cpmm_amount_and_submits():
     assert order.price_impact_bps == 9  # Curve impact excludes the separately displayed 50 bps fee.
     assert order.executable and not order.simulation
     assert order.transaction is None
-    assert provider.required_transaction_accounts() == {
-        settings.raydium_cpmm_program_id, settings.raydium_pool_id,
-    }
+    assert provider.required_transaction_accounts(order.router) == (
+        settings.raydium_cpmm_program_id, settings.raydium_usdc_pool_id,
+    )
 
     result = provider.execute("signed-base64", order.request_id)
     assert result.status == "Success"
@@ -108,4 +112,21 @@ def test_raydium_provider_subtracts_accrued_fees_from_reserves():
         }})
 
     provider = RaydiumDexProvider(settings, httpx.Client(transport=httpx.MockTransport(handler)))
-    assert provider._pool_state()["sol_reserve"] == 999_999_400
+    assert provider._pool_state(provider.pools["USDC"])["sol_reserve"] == 999_999_400
+
+
+def test_raydium_uses_separate_allowlisted_pool_for_usdt():
+    settings = Settings(database_url="sqlite+pysqlite:///:memory:")
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["params"][0][0] == settings.raydium_usdt_pool_id
+        return httpx.Response(200, json={"result": {"value": pool_accounts(settings, "USDT")}})
+    provider = RaydiumDexProvider(settings, httpx.Client(transport=httpx.MockTransport(handler)))
+    tokens = token_registry("devnet")
+    order = provider.get_order(DexOrderRequestData(
+        wallet="oV3Y4Z6DvPvBWGvbgLvfjxHoyVbWZkr1KHmNMHLDA7T",
+        input_token=tokens["USDT"], output_token=tokens["SOL"],
+        amount="1000000", slippage_bps=50,
+    ))
+    assert order.router == settings.raydium_usdt_pool_id
+    assert order.out_amount.isdigit() and int(order.out_amount) > 0
