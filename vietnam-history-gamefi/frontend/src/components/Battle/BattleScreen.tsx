@@ -4,7 +4,8 @@ import { apiService } from '../../services/api';
 import { BACH_DANG_HEXES, BACH_DANG_UNITS, BATTLEFIELD_DIMS } from '../../data/campaign';
 import { hexToPixel, hexPolygonPoints, boardPixelSize, hexDistance, HEX_SIZE, getHexSurfaceHeight, getHexSurfacePosition } from '../../utils/hexGrid';
 import {
-  ArrowLeft, Waves, Move, Swords, LayoutGrid, Flame, MousePointer2, ExternalLink, LoaderCircle, Trophy, Shield
+  ArrowLeft, Waves, Move, Swords, LayoutGrid, Flame, MousePointer2, ExternalLink, LoaderCircle, Trophy, Shield,
+  ChevronUp, ChevronDown
 } from 'lucide-react';
 
 interface BattleScreenProps {
@@ -57,7 +58,15 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
   const [rewardClaim, setRewardClaim] = useState<RewardClaim | null>(null);
   const [settling, setSettling] = useState(false);
   const [settlementError, setSettlementError] = useState<string | null>(null);
-  
+  const [battleHeaderVisible, setBattleHeaderVisible] = useState<boolean>(true);
+
+  const toggleBattleHeader = (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    setBattleHeaderVisible(prev => !prev);
+  };
   
   const [popups, setPopups] = useState<{ id: number; col: number; row: number; dmg: number; color: string }[]>([]);
   const [actionEvents, setActionEvents] = useState<{ id: number; attackerId: string; targetId: string; type: string }[]>([]);
@@ -645,20 +654,6 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
           </button>
         </div>
 
-        <div className="pointer-events-auto flex flex-col items-center bg-gradient-to-b from-[#1a0f0a]/90 to-black/80 border-b border-x border-[#8b744f] rounded-b-2xl px-10 py-3 -mt-4 shadow-xl backdrop-blur-md">
-           <h2 className="text-[#F3E5AB] font-bold font-serif text-xl uppercase tracking-widest drop-shadow-md">Bạch Đằng 1288</h2>
-           <div className={`text-xs font-bold mt-1 ${turnSide === 'player' ? 'text-emerald-400' : 'text-red-400 animate-pulse'}`}>
-             {turnSide === 'player' ? 'Quân ta đang hành động' : 'Địch đang điều binh...'}
-           </div>
-           <div className="mt-2 flex items-center gap-2 bg-[#0a1e2d] border border-[#1a5c6b] px-3 py-1 rounded-full shadow-inner">
-              <Waves className={`w-3.5 h-3.5 ${tideTurnsLeft <= 1 ? 'text-blue-300' : 'text-cyan-400'}`} />
-              <span className="text-[10px] font-bold text-cyan-200 uppercase tracking-wider">Thủy triều {tideTurnsLeft <= 1 ? 'cạn' : 'đang rút'}</span>
-              <div className="flex gap-0.5 ml-1">
-                {[1, 2, 3].map(i => <div key={i} className={`w-2 h-2 rounded-full ${i <= tideTurnsLeft ? 'bg-cyan-400' : 'bg-slate-700'}`} />)}
-              </div>
-           </div>
-        </div>
-
         <div className="pointer-events-auto flex items-center justify-end bg-gradient-to-l from-[#2a0f0a]/90 to-black/80 border border-[#8b744f] rounded-full p-1.5 pl-6 backdrop-blur-md shadow-lg">
            <div className="mr-3 text-right">
              <div className="text-red-400 font-bold font-serif text-sm uppercase leading-none tracking-wide">Mông Nguyên</div>
@@ -673,6 +668,66 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
              <Swords className="w-5 h-5 text-red-300" />
            </div>
         </div>
+      </div>
+
+      {/* TOP-CENTER: COLLAPSIBLE BẠCH ĐẰNG 1288 HEADER */}
+      {/* 1. Full Battle Header Panel */}
+      <div 
+        className="fixed top-0 left-1/2 z-50 flex flex-col items-center"
+        style={{
+          transform: battleHeaderVisible ? 'translate(-50%, 0)' : 'translate(-50%, -105%)',
+          opacity: battleHeaderVisible ? 1 : 0,
+          pointerEvents: battleHeaderVisible ? 'auto' : 'none',
+          visibility: battleHeaderVisible ? 'visible' : 'hidden',
+          transition: 'transform 220ms ease, opacity 180ms ease, visibility 220ms',
+        }}
+      >
+        <div className="flex flex-col items-center bg-gradient-to-b from-[#1a0f0a]/95 to-black/90 border-b border-x border-[#8b744f] rounded-b-2xl px-10 pt-3 pb-2.5 shadow-2xl backdrop-blur-md select-none">
+          <h2 className="text-[#F3E5AB] font-bold font-serif text-xl uppercase tracking-widest drop-shadow-md">Bạch Đằng 1288</h2>
+          <div className={`text-xs font-bold mt-1 ${turnSide === 'player' ? 'text-emerald-400' : 'text-red-400 animate-pulse'}`}>
+            {turnSide === 'player' ? 'Quân ta đang hành động' : 'Địch đang điều binh...'}
+          </div>
+          <div className="mt-2 flex items-center gap-2 bg-[#0a1e2d] border border-[#1a5c6b] px-3 py-1 rounded-full shadow-inner">
+            <Waves className={`w-3.5 h-3.5 ${tideTurnsLeft <= 1 ? 'text-blue-300' : 'text-cyan-400'}`} />
+            <span className="text-[10px] font-bold text-cyan-200 uppercase tracking-wider">Thủy triều {tideTurnsLeft <= 1 ? 'cạn' : 'đang rút'}</span>
+            <div className="flex gap-0.5 ml-1">
+              {[1, 2, 3].map(i => <div key={i} className={`w-2 h-2 rounded-full ${i <= tideTurnsLeft ? 'bg-cyan-400' : 'bg-slate-700'}`} />)}
+            </div>
+          </div>
+
+          {/* Toggle Collapse Button at bottom center */}
+          <button
+            type="button"
+            onClick={toggleBattleHeader}
+            title="Ẩn thông tin trận đấu"
+            className="mt-2.5 -mb-1 px-4 py-1 flex items-center gap-1.5 text-[10px] text-[#C9A44C] hover:text-[#F3E5AB] bg-black/50 hover:bg-[#8b744f]/30 border border-[#8b744f]/50 hover:border-[#C9A44C] rounded-full transition-all cursor-pointer shadow-sm active:scale-95"
+          >
+            <span className="font-serif font-bold tracking-wider uppercase">Ẩn</span>
+            <ChevronUp className="w-3.5 h-3.5 text-[#C9A44C]" />
+          </button>
+        </div>
+      </div>
+
+      {/* 2. Hidden Header Toggle Button ("HIỆN ▼") */}
+      <div
+        className="fixed top-2 left-1/2 z-50 flex items-center justify-center"
+        style={{
+          transform: battleHeaderVisible ? 'translate(-50%, -45px)' : 'translate(-50%, 0)',
+          opacity: battleHeaderVisible ? 0 : 1,
+          pointerEvents: battleHeaderVisible ? 'none' : 'auto',
+          visibility: battleHeaderVisible ? 'hidden' : 'visible',
+          transition: 'transform 220ms ease, opacity 180ms ease, visibility 220ms',
+        }}
+      >
+        <button
+          type="button"
+          onClick={toggleBattleHeader}
+          title="Hiện thông tin trận đấu"
+          className="flex items-center gap-1.5 bg-gradient-to-b from-[#1a0f0a]/95 to-black/90 hover:bg-[#2a1810] border border-[#8b744f] hover:border-[#C9A44C] rounded-full px-4 py-1.5 text-[#C9A44C] hover:text-[#F3E5AB] shadow-2xl backdrop-blur-md cursor-pointer transition-all active:scale-95 select-none"
+        >
+          <span className="text-[10px] font-serif font-bold uppercase tracking-wider">Hiện thông tin</span>
+          <ChevronDown className="w-3.5 h-3.5 text-[#C9A44C] animate-bounce" />
+        </button>
       </div>
 
       {/* Bottom HUD */}

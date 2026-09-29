@@ -91,13 +91,18 @@ namespace VnHistoryGameFi.Network
     [Serializable]
     public class RewardDto
     {
-        public int id;
+        public string id;
+        public string claim_id;
         public string wallet;
         public string chain;
+        public string network;
+        public string source_type;
+        public string source_id;
         public string battle_id;
-        public int amount;
+        public long amount;
         public string tx_digest;
         public string status; // "pending" | "confirmed" | "failed"
+        public string explorer_url;
     }
 
     [Serializable]

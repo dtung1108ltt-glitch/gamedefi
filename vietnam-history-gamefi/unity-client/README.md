@@ -74,6 +74,10 @@ cần cấu hình `CORS_ALLOW_ORIGINS` ở backend để cho phép origin của 
 Dùng Unity `2022.3.50f1` (xem `ProjectSettings/ProjectVersion.txt`). Tạo scene
 ví dụ `Game` với cấu trúc:
 
+Package TextMeshPro `3.0.6` được khai báo trong `Packages/manifest.json`. Sau
+khi Unity resolve package, chọn **Window > TextMeshPro > Import TMP Essential
+Resources** để có font mặc định cho các component TMP.
+
 ```text
 Game
 ├── ApiClient                  (ApiClient component, ApiConfig được gán)

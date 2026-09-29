@@ -67,6 +67,7 @@ namespace VnHistoryGameFi.Core
         private void Awake()
         {
             if (apiClient == null) apiClient = ApiClient.Instance;
+            if (apiClient == null) apiClient = FindObjectOfType<ApiClient>();
             if (apiClient == null)
             {
                 var clientObject = new GameObject("ApiClient");
