@@ -7,7 +7,6 @@ import {
   ExternalLink,
   LoaderCircle,
   RefreshCw,
-  ShieldAlert,
   WalletCards,
 } from 'lucide-react';
 import { Player } from '../../types';
@@ -324,8 +323,10 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
                 placeholder="0.00"
                 className="dex-amount-input"
                 disabled={requestStatus === 'signing' || requestStatus === 'executing'}
+                aria-invalid={Boolean(amount && amountError)}
                 aria-describedby={amount && amountError ? 'dex-amount-error' : undefined}
               />
+              {amount && amountError && <span id="dex-amount-error" className="sr-only">{amountError}</span>}
               <div className="dex-token-actions">
                 <button
                   type="button"
@@ -414,15 +415,8 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
               <div><dt>{order?.provider === 'jupiter' ? 'Phí Jupiter' : 'Phí pool'}</dt><dd>{order ? `${(order.fee_bps / 100).toFixed(2)}%` : '—'}</dd></div>
             </dl>
 
-            {order && (
-              <div className={order.simulation ? 'dex-quote-status is-simulation' : 'dex-quote-status'} role="status">
-                <span>{order.simulation ? 'Báo giá mô phỏng · chưa thể ký' : 'Báo giá từ pool · kiểm tra trước khi ký'}</span>
-                <small title={order.router}>{order.router.slice(0, 6)}…{order.router.slice(-6)} · {order.mode}</small>
-                {order.warning && <p>{order.warning}</p>}
-              </div>
-            )}
-            {amount && amountError && balanceStatus === 'ready' && (
-              <p id="dex-amount-error" className="dex-message is-warning" role="alert"><ShieldAlert size={16} aria-hidden="true" />{amountError}</p>
+            {order?.simulation && (
+              <p className="dex-message is-warning" role="status">Báo giá mô phỏng; chưa thể ký giao dịch.</p>
             )}
             {balanceStatus === 'wallet-required' && (
               <p className="dex-message is-warning" role="status"><WalletCards size={16} aria-hidden="true" />Hãy kết nối ví Solana để lấy báo giá.</p>

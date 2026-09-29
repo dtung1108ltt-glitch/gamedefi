@@ -283,26 +283,6 @@
   text-align: right;
   overflow-wrap: anywhere;
 }
-.dex-quote-status {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 5px 10px;
-  margin: 4px 0 13px;
-  padding: 10px 12px;
-  border: 1px solid rgba(66, 214, 164, .28);
-  border-radius: 6px;
-  background: rgba(66, 214, 164, .06);
-  color: #a1edce;
-  font-size: .75rem;
-}
-.dex-quote-status.is-simulation {
-  border-color: rgba(213, 173, 74, .34);
-  background: rgba(213, 173, 74, .08);
-  color: var(--dex-gold-light);
-}
-.dex-quote-status small { color: var(--dex-muted); overflow-wrap: anywhere; }
-.dex-quote-status p { width: 100%; color: var(--dex-gold-light); }
 .dex-message,
 .dex-operation-status {
   display: flex;
