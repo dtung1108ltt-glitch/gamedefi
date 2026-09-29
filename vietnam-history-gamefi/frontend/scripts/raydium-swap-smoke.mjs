@@ -127,6 +127,17 @@ async function main() {
     }).length,
   };
   if (!submit) {
+    if (args.has('--simulate')) {
+      const simulation = await connection.simulateTransaction(built.transaction, {
+        sigVerify: false,
+        commitment: 'confirmed',
+      });
+      metadata.simulation = {
+        err: simulation.value.err,
+        logs: simulation.value.logs,
+        units_consumed: simulation.value.unitsConsumed,
+      };
+    }
     console.log(JSON.stringify(metadata, null, 2));
     return;
   }

@@ -98,5 +98,17 @@ export async function buildRaydiumSwapTransaction(
   if (!staticKeys.includes(PROGRAM_ID) || !staticKeys.includes(pair.pool) || staticKeys[0] !== expectedWallet) {
     throw new Error('Giao dịch Raydium không khớp ví hoặc pool đã chọn.');
   }
+  // Phantom may report only "Unexpected error" for a transaction that cannot run.
+  // Simulate against the same Devnet RPC used to build it before opening the wallet.
+  const simulation = await connection.simulateTransaction(built.transaction, {
+    commitment: 'confirmed',
+    sigVerify: false,
+  });
+  if (simulation.value.err) {
+    const programError = simulation.value.logs?.filter((line) =>
+      line.startsWith('Program log: Error:') || line.includes('failed:')).pop();
+    const detail = programError || JSON.stringify(simulation.value.err);
+    throw new Error(`Giao dịch không qua mô phỏng Devnet: ${detail}. Hãy lấy báo giá mới và kiểm tra số dư SOL để trả phí.`);
+  }
   return Buffer.from(built.transaction.serialize()).toString('base64');
 }

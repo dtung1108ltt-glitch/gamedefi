@@ -34,7 +34,7 @@ export const solanaAdapter = {
   },
   signVersionedTransaction: async (transactionBase64: string, expectedWallet: string): Promise<string> => {
     const wallet = provider();
-    const owner = (await wallet.connect()).publicKey;
+    const owner = wallet.publicKey ?? (await wallet.connect()).publicKey;
     if (owner.toBase58() !== expectedWallet) throw new Error('Ví đã đổi tài khoản. Hãy đăng nhập lại.');
     let transaction: VersionedTransaction;
     try {
@@ -44,7 +44,15 @@ export const solanaAdapter = {
     }
     const feePayer = transaction.message.staticAccountKeys[0];
     if (!feePayer?.equals(owner)) throw new Error('Ví ký không phải fee payer của giao dịch DEX.');
-    const signed = await wallet.signTransaction(transaction);
+    let signed: VersionedTransaction;
+    try {
+      signed = await wallet.signTransaction(transaction);
+    } catch (reason) {
+      if (SOLANA_NETWORK === 'devnet' && reason instanceof Error && /unexpected error/i.test(reason.message)) {
+        throw new Error('Ví báo "Unexpected error" khi ký. Hãy kiểm tra Phantom đang bật Testnet Mode và chọn Solana Devnet, rồi thử lại.');
+      }
+      throw reason;
+    }
     return Buffer.from(signed.serialize()).toString('base64');
   },
   mintFactionNft: async (factionId: number, expectedWallet: string): Promise<{ tx_digest: string; nft_object_id: string }> => {
