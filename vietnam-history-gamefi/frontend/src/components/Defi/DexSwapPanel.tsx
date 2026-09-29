@@ -44,6 +44,10 @@ function tokenLogo(symbol: DexTokenSymbol): string | null {
   return symbol === 'SOL' ? '/solana-token.svg' : symbol === 'USDC' ? '/usdc-token.svg' : '/usdt-token.svg';
 }
 
+function rateTokenLabel(symbol: DexTokenSymbol): string {
+  return SOLANA_NETWORK === 'devnet' && symbol !== 'SOL' ? `${symbol} thử` : symbol;
+}
+
 function newIdempotencyKey(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
@@ -255,15 +259,15 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
     : null;
   const busy = requestStatus !== 'idle';
   const canRequestQuote = balanceStatus === 'ready' && Boolean(amount) && !amountError && !busy;
-  const marketRate = order && Number(order.in_amount) > 0
+  const effectiveRate = order && Number(order.in_amount) > 0
     ? (Number(order.out_amount) / 10 ** order.output_decimals) /
       (Number(order.in_amount) / 10 ** order.input_decimals)
     : null;
 
   const poolSymbol = fromToken === 'SOL' ? toToken : fromToken;
   const poolAddress = dexConfig?.pools[poolSymbol];
-  const rateDisplay = marketRate !== null && Number.isFinite(marketRate)
-    ? `1 ${fromToken} ≈ ${marketRate.toLocaleString('vi-VN', { maximumFractionDigits: 6 })} ${toToken}`
+  const rateDisplay = effectiveRate !== null && Number.isFinite(effectiveRate)
+    ? `1 ${rateTokenLabel(fromToken)} ≈ ${effectiveRate.toLocaleString('vi-VN', { maximumFractionDigits: 6 })} ${rateTokenLabel(toToken)}`
     : null;
   const receiveBalance = balanceStatus === 'ready' ? `${balances[toToken]} ${toToken}` : balanceStatus === 'loading' ? 'Đang đọc…' : 'Chưa có dữ liệu';
 
@@ -379,7 +383,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
             <p className="dex-slippage-help">Mức tiêu chuẩn 0,5% áp dụng cho biến động giá từ lúc lấy báo giá đến khi giao dịch được thực hiện.</p>
 
             <dl className="dex-quote-details" aria-live="polite">
-              <div><dt>Giá swap từ pool</dt><dd>{rateDisplay ?? 'Lấy báo giá để xem'}</dd></div>
+              <div><dt>Tỷ giá trung bình của lệnh</dt><dd>{rateDisplay ?? 'Lấy báo giá để xem'}</dd></div>
               <div><dt>Nhận tối thiểu</dt><dd>{order ? `${minimumReceived} ${toToken}` : '—'}</dd></div>
               <div><dt>Tác động giá</dt><dd>{order ? order.provider === 'jupiter' && order.price_impact_bps === 0 ? 'Chưa có dữ liệu' : `${(order.price_impact_bps / 100).toFixed(2)}%` : '—'}</dd></div>
               <div><dt>{order?.provider === 'jupiter' ? 'Phí Jupiter' : 'Phí pool'}</dt><dd>{order ? `${(order.fee_bps / 100).toFixed(2)}%` : '—'}</dd></div>
@@ -464,9 +468,11 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
             </div>
           </div>
           <div className="dex-market-rate">
-            <span>Giá swap thực tế · pool {networkLabel}</span>
+            <span>Tỷ giá trung bình của lệnh · pool {networkLabel}</span>
             <strong>{rateDisplay ?? 'Chưa có báo giá'}</strong>
-            <small>{order ? 'Số token nhận được tính từ thanh khoản pool và phí tại lúc báo giá.' : 'Nhập số lượng rồi lấy báo giá để xem lượng token có thể đổi.'}</small>
+            <small>{order
+              ? `Tỷ giá này áp dụng cho ${formatBaseUnits(BigInt(order.in_amount), order.input_decimals, 4)} ${fromToken}; gồm phí pool ${(order.fee_bps / 100).toFixed(2)}% và tác động giá ${(order.price_impact_bps / 100).toFixed(2)}%.`
+              : 'Nhập số lượng rồi lấy báo giá để xem lượng token có thể đổi.'}</small>
           </div>
           <div className="dex-market-rate dex-market-reference" aria-live="polite">
             <span>Giá thị trường tham khảo · SOL/USD</span>
@@ -496,7 +502,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
               <RefreshCw size={17} className={balanceStatus === 'loading' ? 'dex-spin' : ''} aria-hidden="true" />
             </button>
           </div>
-          <p className="dex-market-note">Số dư và lượng token nhận được đọc từ Solana {networkLabel}. Giá SOL/USD chỉ để tham khảo; token thử Devnet không có tỷ giá USD được bảo đảm.</p>
+          <p className="dex-market-note">Số dư và lượng token nhận được đọc từ Solana {networkLabel}. Giá SOL/USD chỉ để tham khảo; USDC/USDT thử trên Devnet không được neo với USD và có thể lệch rất xa giá thị trường.</p>
         </aside>
       </div>
 
