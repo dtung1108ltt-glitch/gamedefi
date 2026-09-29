@@ -42,7 +42,7 @@ namespace VnHistoryGameFi.Core
         [SerializeField] private TMP_Text combatLogText;
         [SerializeField] private TMP_Text rewardSummaryText;
 
-        [Header("HKDV reward")]
+        [Header("SOL Devnet reward")]
         [SerializeField] private TMP_InputField recipientWalletInput;
         [SerializeField] private Button claimRewardButton;
         [SerializeField] private Button openExplorerButton;
@@ -307,8 +307,8 @@ namespace VnHistoryGameFi.Core
                         $"Lúa: {_lastBattle.reward_rice:N0} · Vàng: {_lastBattle.reward_gold:N0} · " +
                         $"EXP: {_lastBattle.reward_xp:N0}\nBattle ID: {_lastBattle.battle_id}\n" +
                         (_lastBattle.victory
-                            ? "Chiến thắng đủ điều kiện yêu cầu claim HKDV on-chain."
-                            : "Chỉ chiến thắng mới đủ điều kiện claim HKDV.");
+                            ? "Chiến thắng đủ điều kiện nhận SOL Devnet on-chain."
+                            : "Chỉ chiến thắng mới đủ điều kiện nhận SOL Devnet.");
                 }
 
                 if (recipientWalletInput != null)
@@ -334,7 +334,7 @@ namespace VnHistoryGameFi.Core
                 if (_player == null || _lastBattle == null)
                     throw new InvalidOperationException("Chưa có kết quả trận đánh để claim.");
                 if (!_lastBattle.victory)
-                    throw new InvalidOperationException("Trận thua không đủ điều kiện nhận HKDV.");
+                    throw new InvalidOperationException("Trận thua không đủ điều kiện nhận SOL Devnet.");
                 if (_player.is_guest)
                     throw new InvalidOperationException("Tài khoản Guest không thể claim phần thưởng on-chain.");
 
@@ -351,7 +351,7 @@ namespace VnHistoryGameFi.Core
                 if (rewardSummaryText != null)
                 {
                     rewardSummaryText.text +=
-                        $"\nTrạng thái claim: {response.status} · Amount: {response.amount} base units" +
+                        $"\nTrạng thái claim: {response.status} · Amount: {response.amount} lamports" +
                         (string.IsNullOrEmpty(_lastTransactionSignature)
                             ? string.Empty
                             : $"\nSignature: {_lastTransactionSignature}");
@@ -360,7 +360,7 @@ namespace VnHistoryGameFi.Core
                     openExplorerButton.interactable = !string.IsNullOrEmpty(_lastTransactionSignature);
                 if (claimRewardButton != null) claimRewardButton.interactable = false;
                 SetStatus(response.success
-                    ? "HKDV đã xác nhận on-chain."
+                    ? "SOL Devnet đã xác nhận on-chain."
                     : $"Claim đã được backend ghi nhận với trạng thái: {response.status}.");
             }
             catch (Exception exception)

@@ -2,7 +2,7 @@
 
 Unity client thử nghiệm gọi backend FastAPI thật qua `UnityWebRequest`. Client
 gửi input trận đấu; backend xác thực session, tính kết quả trong
-`backend/app/domain/battle_engine.py`, ghi nhận eligibility và phân phối HKDV.
+`backend/app/domain/battle_engine.py`, ghi nhận eligibility và phân phối SOL Devnet.
 Unity không tự tính kết quả trận và không giữ private key của distributor.
 
 ## Những gì backend thực sự hỗ trợ
@@ -20,8 +20,8 @@ Unity không tự tính kết quả trận và không giữ private key của di
 
 Backend không trả `token_reward` hay `remaining_hp` trong kết quả battle. Battle
 trả `reward_rice`, `reward_gold`, `reward_xp`, `victory`, `battle_id` và
-`combat_logs`. HKDV được trả qua response của claim, trong đó `amount` là
-**base units**, `tx_digest` là signature và `explorer_url` là URL do backend tạo.
+`combat_logs`. SOL Devnet được trả qua response của claim, trong đó `amount` là
+**lamports**, `tx_digest` là signature và `explorer_url` là URL do backend tạo.
 Guest không thể claim on-chain.
 
 Các DTO `LoginRequest` và `RegisterRequest` được giữ làm mẫu hợp đồng tương lai,
@@ -147,7 +147,7 @@ cần hoàn thành luồng mint/register faction NFT/proof riêng trước khi b
    backend; không dùng Unity local score để claim.
 5. Guest không nhận thưởng on-chain. Muốn thử claim, đăng nhập bằng ví đã mint
    faction proof, ký nonce trong ví thật, thắng trận rồi claim bằng cùng địa chỉ
-   ví. Backend chỉ cấp HKDV nếu trận thắng hợp lệ và distributor đã cấu hình.
+   ví. Backend chỉ cấp SOL Devnet nếu trận thắng hợp lệ và ví phân phối đã cấu hình.
 6. Mở signature trong Solana Explorer bằng nút **Open Explorer**.
 
 `ApiClient.OnUnauthorized` được phát khi server trả HTTP 401; controller xóa
