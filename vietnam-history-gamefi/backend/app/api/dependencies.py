@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import Header, HTTPException, Request, status
 
 from app.core.security import SessionPrincipal, normalize_wallet
+from app.core.store import store
 
 
 def require_session(
@@ -16,6 +17,11 @@ def require_session(
     principal = request.app.state.session_store.get(token)
     if principal is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Phiên đăng nhập không hợp lệ hoặc đã hết hạn")
+    if store.get_player(principal.chain, principal.wallet) is None:
+        profile = request.app.state.session_store.load_player(principal.chain, principal.wallet)
+        if profile is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Không thể khôi phục người chơi trong phiên")
+        store.restore_player(profile)
     return principal
 
 

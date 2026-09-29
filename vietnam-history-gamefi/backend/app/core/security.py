@@ -4,7 +4,13 @@ from __future__ import annotations
 import secrets
 import threading
 import time
-from dataclasses import dataclass
+import hashlib
+import json
+from dataclasses import asdict, dataclass
+
+from sqlalchemy import BigInteger, Boolean, String, Text, create_engine, delete
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 import base58
 from nacl.exceptions import BadSignatureError
@@ -92,34 +98,93 @@ class SessionPrincipal:
     is_guest: bool
 
 
-class SessionStore:
-    """Short-lived opaque sessions.
+class SessionBase(DeclarativeBase):
+    pass
 
-    The API deliberately does not trust a wallet copied into a URL or JSON
-    payload.  An opaque token is preferable here to a self-signed JWT because
-    it can be revoked simply by dropping it from this in-memory MVP store.
+
+class SessionModel(SessionBase):
+    __tablename__ = "auth_sessions"
+
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    chain: Mapped[str] = mapped_column(String(16), nullable=False)
+    wallet: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    is_guest: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    expires_at: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+
+
+class PlayerProfileModel(SessionBase):
+    __tablename__ = "player_profiles"
+
+    chain: Mapped[str] = mapped_column(String(16), primary_key=True)
+    wallet: Mapped[str] = mapped_column(String(128), primary_key=True)
+    profile_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class SessionStore:
+    """Opaque wallet sessions kept in the database across Render restarts.
+
+    Only SHA-256 digests are stored; raw bearer tokens remain in the browser.
+    Active sessions renew when half their lifetime has elapsed.
     """
 
-    def __init__(self, ttl_seconds: int):
+    def __init__(self, ttl_seconds: int, database_url: str, *, create_schema: bool = False):
         self.ttl = ttl_seconds
-        self._sessions: dict[str, tuple[SessionPrincipal, float]] = {}
+        kwargs = {"pool_pre_ping": True}
+        if database_url in {"sqlite+pysqlite://", "sqlite://"}:
+            kwargs.update({"connect_args": {"check_same_thread": False}, "poolclass": StaticPool})
+        elif database_url.startswith("sqlite"):
+            kwargs.update({"connect_args": {"check_same_thread": False}})
+        self.engine = create_engine(database_url, **kwargs)
+        self.sessions = sessionmaker(self.engine, expire_on_commit=False)
+        if create_schema:
+            SessionBase.metadata.create_all(self.engine)
+
+    @staticmethod
+    def _hash(token: str) -> str:
+        return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
     def create(self, chain: str, wallet: str, is_guest: bool = False) -> str:
         token = secrets.token_urlsafe(32)
-        principal = SessionPrincipal(
-            chain=chain,
-            wallet=normalize_wallet(chain, wallet),
-            is_guest=is_guest,
-        )
-        self._sessions[token] = (principal, time.time() + self.ttl)
+        now = int(time.time())
+        with self.sessions.begin() as db:
+            db.execute(delete(SessionModel).where(SessionModel.expires_at <= now))
+            db.add(SessionModel(
+                token_hash=self._hash(token),
+                chain=chain,
+                wallet=normalize_wallet(chain, wallet),
+                is_guest=is_guest,
+                expires_at=now + self.ttl,
+            ))
         return token
 
     def get(self, token: str) -> SessionPrincipal | None:
-        entry = self._sessions.get(token)
-        if entry is None:
+        if not token:
             return None
-        principal, expires_at = entry
-        if time.time() >= expires_at:
-            self._sessions.pop(token, None)
-            return None
-        return principal
+        now = int(time.time())
+        with self.sessions.begin() as db:
+            row = db.get(SessionModel, self._hash(token))
+            if row is None:
+                return None
+            if row.expires_at <= now:
+                db.delete(row)
+                return None
+            if row.expires_at - now < self.ttl // 2:
+                row.expires_at = now + self.ttl
+            return SessionPrincipal(chain=row.chain, wallet=row.wallet, is_guest=row.is_guest)
+
+    def save_player(self, player: object) -> None:
+        data = asdict(player)
+        chain = data["chain"]
+        wallet = normalize_wallet(chain, data["wallet"])
+        with self.sessions.begin() as db:
+            row = db.get(PlayerProfileModel, (chain, wallet))
+            encoded = json.dumps(data, ensure_ascii=False)
+            if row is None:
+                db.add(PlayerProfileModel(chain=chain, wallet=wallet, profile_json=encoded))
+            else:
+                row.profile_json = encoded
+
+    def load_player(self, chain: str, wallet: str) -> dict | None:
+        with self.sessions() as db:
+            row = db.get(PlayerProfileModel, (chain, normalize_wallet(chain, wallet)))
+            return json.loads(row.profile_json) if row is not None else None

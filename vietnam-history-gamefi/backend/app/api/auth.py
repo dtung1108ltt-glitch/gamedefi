@@ -1,12 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.core.security import LOGIN_MESSAGE_TEMPLATE, NonceStore, SessionStore, verify_wallet_signature
+from app.api.dependencies import require_session
+from app.core.security import LOGIN_MESSAGE_TEMPLATE, NonceStore, SessionPrincipal, SessionStore, verify_wallet_signature
 from app.core.store import store
 from app.schemas import (
     GuestLoginRequest,
     NonceRequest,
     NonceResponse,
     AuthenticatedPlayerOut,
+    PlayerOut,
     WalletVerifyRequest,
 )
 
@@ -59,7 +61,12 @@ def verify_wallet(
     # able to burn a legitimate challenge issued to this wallet.
     if not nonces.consume(body.chain, body.wallet, body.nonce):
         raise HTTPException(status_code=400, detail="Nonce đã được sử dụng")
+    if store.get_player(body.chain, body.wallet) is None:
+        profile = sessions.load_player(body.chain, body.wallet)
+        if profile is not None:
+            store.restore_player(profile)
     player = store.get_or_create_player(body.chain, body.wallet)
+    sessions.save_player(player)
     return _authenticated_player(player, sessions.create(player.chain, player.wallet))
 
 
@@ -68,4 +75,14 @@ def guest_login(body: GuestLoginRequest | None = None, sessions: SessionStore = 
     """Đăng nhập trải nghiệm Free-to-Play không cần kết nối ví (Section 13 & 14)."""
     uname = body.username if body else None
     player = store.create_guest_player(uname)
+    sessions.save_player(player)
     return _authenticated_player(player, sessions.create(player.chain, player.wallet, is_guest=True))
+
+
+@router.get("/session", response_model=PlayerOut)
+def current_session(principal: SessionPrincipal = Depends(require_session)):
+    """Validate a restored browser session and return current player details."""
+    player = store.get_player(principal.chain, principal.wallet)
+    if player is None:
+        raise HTTPException(status_code=401, detail="Phiên không có player hợp lệ")
+    return PlayerOut.model_validate(player, from_attributes=True)

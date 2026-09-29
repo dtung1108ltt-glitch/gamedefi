@@ -1,5 +1,5 @@
 import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.api.dependencies import require_session, require_wallet
 from app.core.security import SessionPrincipal
@@ -65,6 +65,7 @@ def get_daily_quests(
 def claim_quest_reward(
     wallet: str,
     quest_id: str,
+    request: Request,
     principal: SessionPrincipal = Depends(require_session),
 ):
     require_wallet(principal, wallet)
@@ -73,12 +74,16 @@ def claim_quest_reward(
     prog = store.claim_daily_quest_reward(wallet, quest_id, today)
     if not prog:
         raise HTTPException(status_code=400, detail="Nhiệm vụ chưa hoàn thành hoặc đã nhận thưởng rồi")
+    player = store.find_player_any_chain(wallet)
+    if player is not None:
+        request.app.state.session_store.save_player(player)
         
     return get_daily_quests(wallet, principal)
 
 @router.post("/players/{wallet}/claim-all", response_model=DailyQuestSummaryOut)
 def claim_all_rewards(
     wallet: str,
+    request: Request,
     principal: SessionPrincipal = Depends(require_session),
 ):
     require_wallet(principal, wallet)
@@ -103,4 +108,7 @@ def claim_all_rewards(
                 player.gold += streak * 100
                 player.rice += streak * 50
         
+    player = store.find_player_any_chain(wallet)
+    if player is not None:
+        request.app.state.session_store.save_player(player)
     return get_daily_quests(wallet, principal)

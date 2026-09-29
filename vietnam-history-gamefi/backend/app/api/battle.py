@@ -46,6 +46,7 @@ def start_battle(
         advisor_id=body.advisor_id,
         battle_id=f"battle-{battle_digest}",
     )
+    request.app.state.session_store.save_player(player)
 
     if record.victory:
         request.app.state.reward_claims.record_event(
@@ -106,4 +107,3 @@ def get_battle(battle_id: str):
         combat_logs=combat_logs,
         message="Chi tiết trận đánh được truy xuất thành công.",
     )
-

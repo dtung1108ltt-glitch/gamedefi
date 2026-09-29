@@ -24,6 +24,10 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || (
 );
 
 async function apiError(response: Response): Promise<Error> {
+  if (response.status === 401) {
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('gamefi:session-expired'));
+    return new SessionExpiredError('Phiên đăng nhập đã hết hạn. Hãy kết nối ví lại.');
+  }
   try {
     const payload = await response.json();
     return new Error(typeof payload?.detail === 'string' ? payload.detail : `HTTP error ${response.status}`);
@@ -31,6 +35,8 @@ async function apiError(response: Response): Promise<Error> {
     return new Error(`HTTP error ${response.status}`);
   }
 }
+
+export class SessionExpiredError extends Error {}
 
 export const DEFAULT_FACTIONS: Faction[] = [
   {
@@ -187,6 +193,16 @@ class GameApiService {
     return this.accessToken ? { Authorization: `Bearer ${this.accessToken}` } : {};
   }
 
+  async getCurrentSession(): Promise<Player> {
+    const res = await fetch(`${API_BASE_URL}/auth/session`, {
+      headers: this.authHeaders(),
+      cache: 'no-store',
+    });
+    if (res.status === 401) throw new SessionExpiredError('Phiên đăng nhập đã hết hạn. Hãy kết nối ví lại.');
+    if (!res.ok) throw await apiError(res);
+    return { ...(await res.json()), access_token: this.accessToken || undefined, base_power: 1200 };
+  }
+
   async checkHealth(): Promise<boolean> {
     try {
       const res = await fetch(`${API_BASE_URL}/health`, {
@@ -306,7 +322,7 @@ class GameApiService {
       headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
       body: JSON.stringify({ faction_id: factionId }),
     });
-    if (!res.ok) throw new Error(`Không thể chọn faction (${res.status})`);
+    if (!res.ok) throw await apiError(res);
     return {
       ...(await res.json()),
       access_token: this.accessToken || undefined,
@@ -320,7 +336,7 @@ class GameApiService {
       headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error(`Backend không xác minh được Faction NFT (${res.status})`);
+    if (!res.ok) throw await apiError(res);
     return { ...(await res.json()), base_power: 1500 };
   }
 
@@ -332,7 +348,7 @@ class GameApiService {
     try {
       const url = factionId ? `${API_BASE_URL}/advisors?faction_id=${factionId}` : `${API_BASE_URL}/advisors`;
       const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      if (!res.ok) throw await apiError(res);
       return await res.json();
     } catch (e) {
       console.warn('Error fetching advisors:', e);
@@ -354,7 +370,7 @@ class GameApiService {
   async getPlayerArmy(wallet: string): Promise<Army> {
     try {
       const res = await fetch(`${API_BASE_URL}/players/${wallet}/army`, { headers: this.authHeaders() });
-      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      if (!res.ok) throw await apiError(res);
       return await res.json();
     } catch (e) {
       console.warn('Error fetching army:', e);
@@ -380,7 +396,7 @@ class GameApiService {
       headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
       body: JSON.stringify({ advisor_id: advisorId }),
     });
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    if (!res.ok) throw await apiError(res);
     return await res.json();
   }
 
@@ -404,7 +420,7 @@ class GameApiService {
         advisor_id: advisorId,
       }),
     });
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    if (!res.ok) throw await apiError(res);
     return await res.json();
   }
 

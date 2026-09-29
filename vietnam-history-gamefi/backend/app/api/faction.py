@@ -49,6 +49,7 @@ def get_player(wallet: str, chain: str | None = None):
 def select_faction_f2p(
     wallet: str,
     body: SelectFactionRequest,
+    request: Request,
     principal: SessionPrincipal = Depends(require_session),
 ):
     """Chọn Faction cho người chơi F2P / Guest mà không bắt buộc phải mint NFT (Section 13)."""
@@ -66,6 +67,7 @@ def select_faction_f2p(
     starting_adv = store.get_starting_advisor_for_faction(body.faction_id)
     if starting_adv:
         store.equip_advisor(wallet, starting_adv)
+    request.app.state.session_store.save_player(player)
 
     return PlayerOut(
         wallet=player.wallet,
@@ -132,6 +134,7 @@ def register_player_faction(
     starting_adv = store.get_starting_advisor_for_faction(body.faction_id)
     if starting_adv:
         store.equip_advisor(wallet, starting_adv)
+    request.app.state.session_store.save_player(player)
 
     return PlayerOut(
         wallet=player.wallet,

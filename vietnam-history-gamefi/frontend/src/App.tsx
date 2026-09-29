@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { ChainType, PreGameStep, MapLocation, Player } from './types';
 import { useWallet } from './hooks/useWallet';
 import { useFaction } from './hooks/useFaction';
@@ -49,10 +49,18 @@ export const App: React.FC = () => {
     isConnecting,
     authStep,
     error: walletError,
+    sessionExpired,
     connectAndAuth,
     updatePlayerFaction,
     disconnect,
   } = useWallet();
+
+  useEffect(() => {
+    if (!sessionExpired) return;
+    setGuestPlayer(null);
+    setStep('splash');
+    setIsWalletModalOpen(true);
+  }, [sessionExpired]);
 
   // Faction system
   const {

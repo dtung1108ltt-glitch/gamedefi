@@ -292,6 +292,15 @@ class Store:
             )
         return self.players[key]
 
+    def restore_player(self, profile: dict) -> Player:
+        """Rehydrate a server-saved player after an application restart."""
+        fields = Player.__dataclass_fields__
+        player = Player(**{name: value for name, value in profile.items() if name in fields})
+        self.players[self._key(player.chain, player.wallet)] = player
+        if player.is_guest:
+            self.players[f"guest:{player.wallet}"] = player
+        return player
+
     def create_guest_player(self, username: str | None = None) -> Player:
         guest_id = str(uuid.uuid4())[:8]
         uname = username or f"TuongQuan_{guest_id}"

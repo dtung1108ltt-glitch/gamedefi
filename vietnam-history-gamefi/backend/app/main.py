@@ -37,7 +37,10 @@ def create_app() -> FastAPI:
     app.state.settings = settings
     app.state.resolver = AdapterResolver(settings)
     app.state.nonce_store = NonceStore(settings.nonce_ttl_seconds)
-    app.state.session_store = SessionStore(settings.session_ttl_seconds)
+    app.state.session_store = SessionStore(
+        settings.session_ttl_seconds, settings.database_url,
+        create_schema=settings.database_auto_create,
+    )
     app.state.dex_provider = create_dex_provider(settings)
     app.state.dex_swaps = DexSwapRepository(settings.database_url, create_schema=settings.database_auto_create)
     app.state.reward_claims = RewardRepository(settings.database_url, create_schema=settings.database_auto_create)
