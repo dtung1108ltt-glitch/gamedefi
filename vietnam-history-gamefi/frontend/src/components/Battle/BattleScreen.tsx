@@ -1,22 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Faction, Player, BattleResultResponse, BattleUnit, HexTile, TerrainType, TacticalAction, MapLocation, RewardClaim } from '../../types';
 import { apiService } from '../../services/api';
 import { BACH_DANG_HEXES, BACH_DANG_UNITS, BATTLEFIELD_DIMS } from '../../data/campaign';
 import { hexToPixel, hexPolygonPoints, boardPixelSize, hexDistance, HEX_SIZE } from '../../utils/hexGrid';
 import {
-  ArrowLeft,
-  Waves,
-  Sun,
-  Move,
-  Swords,
-  LayoutGrid,
-  Flame,
-  Radar,
-  MousePointer2,
-  Sparkles,
-  ExternalLink,
-  LoaderCircle,
-  Trophy,
+  ArrowLeft, Waves, Move, Swords, LayoutGrid, Flame, MousePointer2, ExternalLink, LoaderCircle, Trophy, Shield
 } from 'lucide-react';
 
 interface BattleScreenProps {
@@ -29,53 +17,64 @@ interface BattleScreenProps {
   onPlayGong: () => void;
 }
 
-const TERRAIN_STYLES: Record<TerrainType, { fill: string; stroke: string }> = {
-  plain: { fill: '#2c3a24', stroke: '#4b5d3a' },
-  hill: { fill: '#5a4a26', stroke: '#D4AF37' },
-  forest: { fill: '#173420', stroke: '#2f6b3f' },
-  mud: { fill: '#3b2f1e', stroke: '#6b5334' },
-  river: { fill: '#0e3648', stroke: '#2e8fb0' },
-  stakes: { fill: '#123b4d', stroke: '#e0b04a' },
-  fort: { fill: '#3a1414', stroke: '#8B1E0F' },
-};
-
 const TERRAIN_NAME_VI: Record<TerrainType, string> = {
-  plain: 'Đồng bằng',
-  hill: 'Gò cao',
-  forest: 'Rừng ngập mặn',
-  mud: 'Bãi lầy triều',
-  river: 'Sông nước',
-  stakes: 'Bãi cọc ngầm',
-  fort: 'Công sự',
+  plain: 'Đồng Bằng', hill: 'Gò Cao', forest: 'Rừng Ngập Mặn',
+  mud: 'Bãi Lầy', river: 'Sông Nước', stakes: 'Bãi Cọc Ngầm', fort: 'Công Sự',
 };
 
-const ACTIONS: { key: TacticalAction; label: string; icon: React.ReactNode }[] = [
-  { key: 'move', label: 'Di chuyển', icon: <Move className="w-4 h-4" /> },
-  { key: 'attack', label: 'Tấn công', icon: <Swords className="w-4 h-4" /> },
-  { key: 'formation', label: 'Đội hình', icon: <LayoutGrid className="w-4 h-4" /> },
-  { key: 'fire_arrow', label: 'Hỏa tiễn', icon: <Flame className="w-4 h-4" /> },
+const ACTIONS: { key: TacticalAction; label: string; icon: React.ReactNode; color: string }[] = [
+  { key: 'move', label: 'Di chuyển', icon: <Move className="w-5 h-5" />, color: 'text-blue-400' },
+  { key: 'attack', label: 'Tấn công', icon: <Swords className="w-5 h-5" />, color: 'text-red-400' },
+  { key: 'formation', label: 'Phòng ngự', icon: <Shield className="w-5 h-5" />, color: 'text-emerald-400' },
+  { key: 'fire_arrow', label: 'Hỏa tiễn', icon: <Flame className="w-5 h-5" />, color: 'text-orange-400' },
 ];
 
+const TILT_ANGLE = 50;
+
+import { UnitEntity } from './UnitEntity';
+import { useAutoBattle } from './engine/useAutoBattle';
+import { useBattleCamera } from './engine/useBattleCamera';
+
 export const BattleScreen: React.FC<BattleScreenProps> = ({
-  player,
-  faction,
-  location,
-  onExitBattle,
-  onPlayDrum,
-  onPlaySword,
-  onPlayGong,
+  player, faction, location, onExitBattle, onPlayDrum, onPlaySword, onPlayGong,
 }) => {
   const [units, setUnits] = useState<BattleUnit[]>(BACH_DANG_UNITS);
   const [selectedUnitId, setSelectedUnitId] = useState<string>('p1');
   const [selectedHex, setSelectedHex] = useState<{ col: number; row: number } | null>({ col: 1, row: 3 });
   const [activeAction, setActiveAction] = useState<TacticalAction | null>(null);
   const [turnSide, setTurnSide] = useState<'player' | 'enemy'>('player');
-  const [tideTurnsLeft, setTideTurnsLeft] = useState<number>(2);
-  const [log, setLog] = useState<string[]>(['Trận Bạch Đằng bắt đầu. Đến lượt quân ta hành động.']);
+  const [tideTurnsLeft, setTideTurnsLeft] = useState<number>(3);
+  const [log, setLog] = useState<string[]>(['Trận Bạch Đằng bắt đầu.', 'Đến lượt quân ta hành động.']);
   const [battleResult, setBattleResult] = useState<BattleResultResponse | null>(null);
   const [rewardClaim, setRewardClaim] = useState<RewardClaim | null>(null);
   const [settling, setSettling] = useState(false);
   const [settlementError, setSettlementError] = useState<string | null>(null);
+  
+  
+  const [popups, setPopups] = useState<{ id: number; col: number; row: number; dmg: number; color: string }[]>([]);
+  const [actionEvents, setActionEvents] = useState<{ id: number; attackerId: string; targetId: string; type: string }[]>([]);
+
+
+  const [isAuto, setIsAuto] = useState<boolean>(true);
+  const [battleSpeed, setBattleSpeed] = useState<number>(1);
+  const [strategy, setStrategy] = useState<'aggressive'|'defensive'|'balanced'>('balanced');
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+
+  // Auto-settle battle if one side is defeated
+  useEffect(() => {
+    if (settling || battleResult) return;
+    const playerAlive = units.some(u => u.side === 'player' && u.stats.at > 0);
+    const enemyAlive = units.some(u => u.side === 'enemy' && u.stats.at > 0);
+    
+    if (!playerAlive || !enemyAlive) {
+      void handleSettleBattle();
+    }
+  }, [units, settling, battleResult]);
+
+  const { 
+    camera, mode: cameraMode, isDragging, 
+    handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, focusOnCombat 
+  } = useBattleCamera();
 
   const { cols, rows } = BATTLEFIELD_DIMS;
   const boardSize = useMemo(() => boardPixelSize(cols, rows), [cols, rows]);
@@ -86,97 +85,114 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
   const selectedTile = selectedHex ? hexAt(selectedHex.col, selectedHex.row) : undefined;
 
   const pushLog = (msg: string) => setLog(prev => [msg, ...prev].slice(0, 5));
+  const showDamage = (col: number, row: number, dmg: number, color: string) => {
+    const id = Date.now() + Math.random();
+    setPopups(prev => [...prev, { id, col, row, dmg, color }]);
+    setTimeout(() => setPopups(prev => prev.filter(p => p.id !== id)), 1200);
+  };
 
   const validTargets = useMemo(() => {
-    if (!selectedUnit || !activeAction) return new Set<string>();
+    if (!selectedUnit || !activeAction || selectedUnit.side !== 'player') return new Set<string>();
     const set = new Set<string>();
     if (activeAction === 'move') {
       for (const tile of BACH_DANG_HEXES) {
         if (tile.zone === 'enemy') continue;
         const dist = hexDistance(selectedUnit, tile);
-        if (dist > 0 && dist <= 2 && !unitAt(tile.col, tile.row)) {
-          set.add(`${tile.col}-${tile.row}`);
-        }
+        if (dist > 0 && dist <= 2 && !unitAt(tile.col, tile.row)) set.add(`${tile.col}-${tile.row}`);
       }
     } else if (activeAction === 'attack') {
       for (const u of units) {
         if (u.side === selectedUnit.side) continue;
-        const dist = hexDistance(selectedUnit, u);
-        if (dist <= 1) set.add(`${u.col}-${u.row}`);
+        if (hexDistance(selectedUnit, u) <= 1) set.add(`${u.col}-${u.row}`);
       }
     } else if (activeAction === 'fire_arrow') {
-      const onHill = hexAt(selectedUnit.col, selectedUnit.row)?.terrain === 'hill';
-      const range = onHill ? 4 : 3;
+      const range = hexAt(selectedUnit.col, selectedUnit.row)?.terrain === 'hill' ? 4 : 3;
       for (const u of units) {
         if (u.side === selectedUnit.side) continue;
         const dist = hexDistance(selectedUnit, u);
-        if (dist <= range) set.add(`${u.col}-${u.row}`);
+        if (dist > 0 && dist <= range) set.add(`${u.col}-${u.row}`);
       }
     }
     return set;
   }, [selectedUnit, activeAction, units]);
 
-  const endPlayerTurn = () => {
-    setTurnSide('enemy');
+  const advanceTurn = () => {
+    setTurnSide(prev => {
+      const nextSide = prev === 'player' ? 'enemy' : 'player';
+      if (nextSide === 'player') {
+        setTideTurnsLeft(t => (t > 0 ? t - 1 : 3));
+        pushLog('Đến lượt quân ta hành động.');
+      } else {
+        pushLog('Quân Mông Nguyên đang điều binh...');
+      }
+      return nextSide;
+    });
     setActiveAction(null);
-    pushLog('Quân Mông Cổ đang điều binh...');
-    window.setTimeout(() => {
-      setTideTurnsLeft(t => (t > 0 ? t - 1 : 3));
-      setTurnSide('player');
-      pushLog('Đến lượt quân ta. Triều nước tiếp tục rút.');
-    }, 900);
   };
 
+  useAutoBattle({
+    isAuto: isAuto && !isPaused && !settling,
+    speedMultiplier: battleSpeed,
+    strategy,
+    units,
+    turnSide,
+    hexes: BACH_DANG_HEXES,
+    tideTurnsLeft,
+    setUnits,
+    setActionEvents,
+    showDamage,
+    pushLog,
+    endTurn: advanceTurn,
+    focusOnCombat
+  });
+
   const handleSelectHex = (col: number, row: number) => {
+    if (isDragging) return;
     const unit = unitAt(col, row);
     setSelectedHex({ col, row });
 
-    if (turnSide !== 'player') return;
+    if (turnSide !== 'player' || isAuto) {
+      if (unit) setSelectedUnitId(unit.unit_id);
+      return;
+    }
 
     if (activeAction === 'move' && selectedUnit && validTargets.has(`${col}-${row}`)) {
       onPlayDrum();
       setUnits(prev => prev.map(u => (u.unit_id === selectedUnit.unit_id ? { ...u, col, row } : u)));
-      pushLog(`${selectedUnit.name} di chuyển tới ô (${col}, ${row}).`);
+      pushLog(`Di chuyển tới ô (${col}, ${row}).`);
       setActiveAction(null);
-      endPlayerTurn();
+      advanceTurn();
       return;
     }
 
     if ((activeAction === 'attack' || activeAction === 'fire_arrow') && selectedUnit && unit && validTargets.has(`${col}-${row}`)) {
       onPlaySword();
+      focusOnCombat((hexToPixel(selectedUnit.col, selectedUnit.row).x + hexToPixel(unit.col, unit.row).x)/2, (hexToPixel(selectedUnit.col, selectedUnit.row).y + hexToPixel(unit.col, unit.row).y)/2);
       const bonus = activeAction === 'fire_arrow' ? 1.3 : 1.0;
       const hillBonus = hexAt(selectedUnit.col, selectedUnit.row)?.terrain === 'hill' ? 1.2 : 1.0;
-      const dmg = Math.max(5, Math.round(selectedUnit.stats.atk * bonus * hillBonus - unit.stats.def * 0.4));
-      setUnits(prev =>
-        prev
-          .map(u => (u.unit_id === unit.unit_id ? { ...u, stats: { ...u.stats, at: Math.max(0, u.stats.at - dmg) } } : u))
-          .filter(u => u.stats.at > 0 || u.side === 'player')
-      );
-      pushLog(`${selectedUnit.name} ${activeAction === 'fire_arrow' ? 'bắn hoả tiễn vào' : 'tấn công'} ${unit.name}, gây ${dmg} sát thương.`);
+      const isStakes = hexAt(unit.col, unit.row)?.terrain === 'stakes' && tideTurnsLeft <= 1;
+      const dmg = Math.max(5, Math.round(selectedUnit.stats.atk * bonus * hillBonus * (isStakes ? 1.5 : 1.0) - unit.stats.def * 0.4));
+      
+      setUnits(prev => prev.map(u => (u.unit_id === unit.unit_id ? { ...u, stats: { ...u.stats, at: Math.max(0, u.stats.at - dmg) } } : u)).filter(u => u.stats.at > 0 || u.side === 'player'));
+      showDamage(col, row, dmg, activeAction === 'fire_arrow' ? '#fb923c' : '#ef4444');
+      setActionEvents(prev => [...prev, { id: Date.now(), attackerId: selectedUnit.unit_id, targetId: unit.unit_id, type: activeAction }]);
+      pushLog(`${activeAction === 'fire_arrow' ? '🔥 Hỏa tiễn' : '⚔ Tấn công'} gây ${dmg} sát thương lên ${unit.name}.`);
       setActiveAction(null);
-      endPlayerTurn();
+      advanceTurn();
       return;
     }
 
-    if (unit) {
-      setSelectedUnitId(unit.unit_id);
-    }
-  };
-
-  const handleSelectUnit = (unit: BattleUnit) => {
-    setSelectedUnitId(unit.unit_id);
-    setSelectedHex({ col: unit.col, row: unit.row });
-    if (unit.side === 'enemy') setActiveAction(null);
+    if (unit) setSelectedUnitId(unit.unit_id);
   };
 
   const handleAction = (action: TacticalAction) => {
-    if (!selectedUnit || selectedUnit.side !== 'player' || turnSide !== 'player') return;
+    if (!selectedUnit || selectedUnit.side !== 'player' || turnSide !== 'player' || isAuto) return;
     onPlayDrum();
     if (action === 'formation') {
-      pushLog(`${selectedUnit.name} chuyển sang đội hình phòng ngự, +DEF tạm thời.`);
-      setUnits(prev => prev.map(u => (u.unit_id === selectedUnit.unit_id ? { ...u, stats: { ...u.stats, def: u.stats.def + 5 } } : u)));
+      pushLog(`🛡 ${selectedUnit.name} lập đội hình phòng thủ (+DEF).`);
+      setUnits(prev => prev.map(u => (u.unit_id === selectedUnit.unit_id ? { ...u, stats: { ...u.stats, def: u.stats.def + 10 } } : u)));
       setActiveAction(null);
-      endPlayerTurn();
+      advanceTurn();
       return;
     }
     setActiveAction(prev => (prev === action ? null : action));
@@ -186,13 +202,9 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
     setSettling(true);
     setSettlementError(null);
     try {
-      const scenarioId = 'bach_dang_1288';
-      const result = await apiService.executeBattle(player.wallet, scenarioId, 'aggressive');
+      const result = await apiService.executeBattle(player.wallet, 'bach_dang_1288', 'aggressive');
       setBattleResult(result);
-      if (result.victory && !player.is_guest) {
-        const claim = await apiService.claimBattleReward(player.wallet, result.battle_id);
-        setRewardClaim(claim);
-      }
+      if (result.victory && !player.is_guest) setRewardClaim(await apiService.claimBattleReward(player.wallet, result.battle_id));
       if (result.victory) onPlayGong();
     } catch (reason) {
       setSettlementError(reason instanceof Error ? reason.message : 'Không thể ghi nhận kết quả trận đánh.');
@@ -201,323 +213,336 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
     }
   };
 
-  const playerInitiative = turnSide === 'player';
+  const playerPower = useMemo(() => units.filter(u => u.side === 'player').reduce((acc, curr) => acc + curr.stats.at, 0), [units]);
+  const enemyPower = useMemo(() => units.filter(u => u.side === 'enemy').reduce((acc, curr) => acc + curr.stats.at, 0), [units]);
+  const maxPlayerPower = BACH_DANG_UNITS.filter(u => u.side === 'player').reduce((acc, curr) => acc + curr.stats.at, 0);
 
   return (
-    <div className="app-screen battle-screen max-w-[1500px] mx-auto px-3 sm:px-4 lg:px-6 py-4">
+    <div className="relative flex-1 w-full min-h-[600px] bg-[#030d12] overflow-hidden font-sans select-none">
+      
+      <style>{`
+        @keyframes battle-shake { 0%, 100% { transform: translate(0, 0); } 20% { transform: translate(-8px, 4px) rotate(-1deg); } 40% { transform: translate(8px, -4px) rotate(1deg); } 60% { transform: translate(-4px, 8px); } 80% { transform: translate(4px, -8px); } }
+        @keyframes dmg-float { 0% { opacity: 0; transform: translate(-50%, -50%) rotateZ(${-camera.yaw}deg) rotateX(${-camera.pitch}deg) scale(0.5); } 20% { opacity: 1; transform: translate(-50%, -150%) rotateZ(${-camera.yaw}deg) rotateX(${-camera.pitch}deg) scale(1.2); } 100% { opacity: 0; transform: translate(-50%, -250%) rotateZ(${-camera.yaw}deg) rotateX(${-camera.pitch}deg) scale(1); } }
+        .bg-water-noise { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.015' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.3'/%3E%3C/svg%3E"); }
+      `}</style>
 
-      <button
-        onClick={onExitBattle}
-        className="mb-3 inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-imperial-lightgold transition-colors cursor-pointer"
+      {/* Cinematic Background Layer */}
+      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+         <div className="absolute top-0 w-full h-[60%] bg-gradient-to-b from-[#0a1e2d] to-transparent opacity-80" />
+         <div className="absolute bottom-0 w-full h-[60%] bg-gradient-to-t from-[#02080a] to-transparent opacity-90" />
+         <div className="absolute inset-0 bg-water-noise mix-blend-overlay opacity-20 animate-[spin_120s_linear_infinite]" />
+      </div>
+
+      {/* MAP VIEWPORT */}
+      <div 
+        className="absolute inset-0 overflow-hidden z-0"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onWheel={handleWheel}
+        style={{ cursor: isDragging ? 'grabbing' : activeAction ? 'crosshair' : 'grab' }}
       >
-        <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Về chiến dịch</span>
-      </button>
-
-      <div className="battle-intro">
-        <p>Chiến dịch lịch sử · Bạch Đằng</p>
-        <h1>Thủy chiến Bạch Đằng</h1>
-        <span>Chọn quân, đọc địa hình và hành động theo lượt.</span>
-      </div>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Top HUD: environment / tide meter / initiative timeline             */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-        <div className="flex items-center gap-2 bg-imperial-lacquer/90 border border-imperial-border rounded-xl px-3 py-2 text-xs">
-          <Sun className="w-4 h-4 text-amber-300" />
-          <span className="text-slate-300">Bối cảnh:</span>
-          <span className="font-bold text-white">Ban ngày</span>
-        </div>
-
-        <div className="bg-imperial-lacquer/90 border border-imperial-gold/50 rounded-xl px-3 py-2 text-xs">
-          <div className="flex items-center justify-between mb-1">
-            <span className="flex items-center gap-1.5 text-slate-300">
-              <Waves className="w-4 h-4 text-cyan-300" />
-              Thủy triều: <span className="font-bold text-cyan-300">Đang rút</span>
-            </span>
-            <span className="font-bold text-imperial-lightgold">Còn {tideTurnsLeft} lượt</span>
-          </div>
-          <div className="w-full h-1.5 rounded-full bg-black/50 overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-700 transition-all" style={{ width: `${(tideTurnsLeft / 3) * 100}%` }} />
-          </div>
-        </div>
-
-        <div className="bg-imperial-lacquer/90 border border-imperial-border rounded-xl px-3 py-2 text-xs">
-          <div className="text-slate-300 mb-1">Thứ tự lượt</div>
-          <div className="flex items-center justify-center gap-3">
-            <div className={`flex flex-col items-center gap-0.5 ${playerInitiative ? 'opacity-100' : 'opacity-40'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${playerInitiative ? 'border-imperial-gold bg-blue-900' : 'border-slate-700 bg-black/30'}`}>
-                <Swords className="w-4 h-4 text-blue-200" />
-              </div>
-              <span className="text-[9px] text-slate-400">Quân Trần</span>
-            </div>
-            <ArrowLeft className="w-3.5 h-3.5 text-slate-500 rotate-180" />
-            <div className={`flex flex-col items-center gap-0.5 ${!playerInitiative ? 'opacity-100' : 'opacity-40'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${!playerInitiative ? 'border-imperial-gold bg-red-900' : 'border-slate-700 bg-black/30'}`}>
-                <Swords className="w-4 h-4 text-red-200" />
-              </div>
-              <span className="text-[9px] text-slate-400">Quân Nguyên</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_260px] gap-3">
-
-        {/* ------------------------------------------------------------------ */}
-        {/* Hex battlefield                                                     */}
-        {/* ------------------------------------------------------------------ */}
-        <div className="battle-board relative border border-imperial-gold/40 rounded-2xl overflow-auto p-2">
-          <svg
-            viewBox={`0 0 ${boardSize.width} ${boardSize.height}`}
-            width="100%"
-            style={{ minWidth: 720 }}
-            className="select-none"
+        <div className="absolute top-1/2 left-1/2 w-[1200px] h-[900px] flex items-center justify-center pointer-events-none">
+          
+          {/* 2.5D BOARD CONTAINER */}
+          <div 
+            className={`relative w-full h-full drop-shadow-2xl transition-transform duration-700 ease-in-out`}
+            style={{ 
+              transform: `perspective(1200px) translate3d(${camera.x}px, ${camera.y}px, 0) scale(${camera.zoom}) rotateX(${camera.pitch}deg) rotateZ(${camera.yaw}deg)`, 
+              transformStyle: 'preserve-3d',
+              pointerEvents: 'auto'
+            }}
           >
-            {BACH_DANG_HEXES.map((tile) => {
-              const { x, y } = hexToPixel(tile.col, tile.row);
-              const style = TERRAIN_STYLES[tile.terrain];
-              const isSelected = selectedHex?.col === tile.col && selectedHex?.row === tile.row;
-              const isValidTarget = validTargets.has(`${tile.col}-${tile.row}`);
-              const zoneStroke = tile.zone === 'ally' ? '#34d399' : tile.zone === 'enemy' ? '#f87171' : style.stroke;
-
-              return (
-                <g key={`${tile.col}-${tile.row}`} onClick={() => handleSelectHex(tile.col, tile.row)} className="cursor-pointer">
+            
+            {/* BASE HEX LAYER (TERRAIN) */}
+            <svg width="1200" height="900" className="absolute inset-0 overflow-visible pointer-events-none">
+              {BACH_DANG_HEXES.map((tile) => {
+                const { x, y } = hexToPixel(tile.col, tile.row);
+                let fill = 'rgba(8, 51, 68, 0.4)'; // river/water base
+                if (tile.terrain === 'plain') fill = 'rgba(20, 83, 45, 0.9)';
+                if (tile.terrain === 'forest') fill = 'rgba(6, 78, 59, 0.95)';
+                if (tile.terrain === 'hill') fill = 'rgba(66, 32, 6, 0.95)';
+                if (tile.terrain === 'mud') fill = 'rgba(63, 63, 70, 0.8)';
+                return (
                   <polygon
+                    key={`base-${tile.col}-${tile.row}`}
                     points={hexPolygonPoints(x, y)}
-                    fill={style.fill}
-                    stroke={isSelected ? '#F3E5AB' : isValidTarget ? '#facc15' : zoneStroke}
-                    strokeWidth={isSelected || isValidTarget ? 2.5 : 1}
-                    opacity={tile.zone !== 'neutral' ? 0.92 : 0.85}
+                    fill={fill}
+                    stroke="#ffffff" strokeOpacity={0.05} strokeWidth={1}
                   />
-                  {tile.zone !== 'neutral' && (
+                );
+              })}
+            </svg>
+
+            {/* TACTICAL HEX LAYER (INTERACTION & HIGHLIGHTS) */}
+            <svg width="1200" height="900" className="absolute inset-0 overflow-visible z-10">
+              {BACH_DANG_HEXES.map((tile) => {
+                const { x, y } = hexToPixel(tile.col, tile.row);
+                const isSelected = selectedHex?.col === tile.col && selectedHex?.row === tile.row;
+                const isValidTarget = validTargets.has(`${tile.col}-${tile.row}`);
+                return (
+                  <g key={`tac-${tile.col}-${tile.row}`}>
                     <polygon
-                      points={hexPolygonPoints(x, y, HEX_SIZE - 3)}
-                      fill="none"
-                      stroke={tile.zone === 'ally' ? '#34d399' : '#f87171'}
-                      strokeOpacity={0.35}
-                      strokeWidth={3}
+                      points={hexPolygonPoints(x, y)}
+                      fill="transparent"
+                      stroke={isSelected ? '#F3E5AB' : isValidTarget ? (activeAction === 'move' ? '#38bdf8' : '#ef4444') : 'transparent'}
+                      strokeWidth={isSelected || isValidTarget ? 3 : 0}
+                      className="pointer-events-auto cursor-pointer hover:fill-white/10 transition-colors"
+                      onClick={() => handleSelectHex(tile.col, tile.row)}
                     />
-                  )}
-                  {tile.terrain === 'stakes' &&
-                    Array.from({ length: 4 }).map((_, i) => (
-                      <line
-                        key={i}
-                        x1={x - 10 + i * 6}
-                        y1={y + 8}
-                        x2={x - 10 + i * 6}
-                        y2={y - 6}
-                        stroke="#e0b04a"
-                        strokeWidth={1.4}
-                      />
-                    ))}
-                </g>
-              );
-            })}
+                    {isValidTarget && (
+                      <polygon points={hexPolygonPoints(x, y, HEX_SIZE - 4)} fill={activeAction === 'move' ? '#0ea5e9' : '#ef4444'} opacity="0.3" className="pointer-events-none" />
+                    )}
+                  </g>
+                );
+              })}
+            </svg>
 
-            {/* Terrain feature callouts (persistent tooltip labels) */}
-            {BACH_DANG_HEXES.filter(t => t.label).map((tile) => {
-              const { x, y } = hexToPixel(tile.col, tile.row);
-              return (
-                <g key={`label-${tile.col}-${tile.row}`} pointerEvents="none">
-                  <foreignObject x={x - 62} y={y - 68} width="140" height="46">
-                    <div className="bg-black/75 border border-imperial-border rounded px-1.5 py-1 text-center leading-tight">
-                      <div className="text-[8px] text-white font-semibold">{tile.label}</div>
-                      {tile.effect && <div className="text-[7px] text-amber-300">{tile.effect}</div>}
-                    </div>
-                  </foreignObject>
-                </g>
-              );
-            })}
-
-            {/* Units */}
-            {units.map((unit) => {
-              const { x, y } = hexToPixel(unit.col, unit.row);
-              const isSelected = unit.unit_id === selectedUnitId;
-              const sideColor = unit.side === 'player' ? '#1d4ed8' : '#b91c1c';
-              return (
-                <g
-                  key={unit.unit_id}
-                  transform={`translate(${x}, ${y})`}
-                  onClick={(e) => { e.stopPropagation(); handleSelectUnit(unit); }}
-                  className="cursor-pointer"
-                >
-                  <circle r={13} fill={sideColor} stroke={isSelected ? '#F3E5AB' : '#0B0C10'} strokeWidth={isSelected ? 2.5 : 1.5} />
-                  <text textAnchor="middle" dominantBaseline="central" fontSize="12" fill="#fff" fontWeight="bold">
-                    {unit.icon === 'spear' ? '⚔' : unit.icon === 'archer' ? '🏹' : unit.icon === 'elephant' ? '🐘' : '🐎'}
-                  </text>
-                  <rect x={-16} y={16} width="32" height="4" rx="2" fill="#000" opacity={0.5} />
-                  <rect x={-16} y={16} width={32 * Math.max(0, Math.min(1, unit.stats.at / 150))} height="4" rx="2" fill={unit.side === 'player' ? '#34d399' : '#f87171'} />
-                </g>
-              );
-            })}
-          </svg>
-
-          {/* Tactical radar mini-map */}
-          <div className="absolute top-3 right-3 bg-black/70 border border-imperial-border rounded-lg p-2 w-28">
-            <div className="flex items-center gap-1 text-[9px] text-slate-400 mb-1">
-              <Radar className="w-3 h-3" /> Sơ đồ trận
-            </div>
-            <div className="relative w-full aspect-[12/7] bg-imperial-obsidian rounded overflow-hidden">
-              {units.map(u => (
-                <div
-                  key={u.unit_id}
-                  className={`absolute w-1.5 h-1.5 rounded-full ${u.side === 'player' ? 'bg-blue-400' : 'bg-red-400'}`}
-                  style={{ left: `${(u.col / cols) * 100}%`, top: `${(u.row / rows) * 100}%` }}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ------------------------------------------------------------------ */}
-        {/* Right column: unit card + terrain indicator + battle log            */}
-        {/* ------------------------------------------------------------------ */}
-        <div className="flex flex-col gap-3">
-
-          {/* Selected unit stats */}
-          <div className="bg-imperial-lacquer/90 border border-imperial-border rounded-xl p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <MousePointer2 className="w-3.5 h-3.5 text-imperial-gold" />
-              <span className="text-[10px] uppercase text-slate-400 tracking-wide">Đơn Vị Đang Chọn</span>
-            </div>
-            {selectedUnit ? (
-              <div className="flex gap-3">
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-xl shrink-0 ${selectedUnit.side === 'player' ? 'bg-blue-950 border border-blue-600' : 'bg-red-950 border border-red-600'}`}>
-                  {selectedUnit.icon === 'spear' ? '⚔' : selectedUnit.icon === 'archer' ? '🏹' : selectedUnit.icon === 'elephant' ? '🐘' : '🐎'}
-                </div>
-                <div className="flex-1">
-                  <div className="text-sm font-bold font-display text-white leading-tight">{selectedUnit.name}</div>
-                  <div className="grid grid-cols-3 gap-x-2 gap-y-1 mt-1.5 text-[10px]">
-                    <Stat label="AT" value={selectedUnit.stats.at} color="text-emerald-400" />
-                    <Stat label="ATK" value={selectedUnit.stats.atk} color="text-red-400" />
-                    <Stat label="DEF" value={selectedUnit.stats.def} color="text-blue-400" />
-                    <Stat label="AS/TK" value={selectedUnit.stats.asTk} color="text-amber-400" />
-                    <Stat label="ATF" value={selectedUnit.stats.atf} color="text-purple-400" />
-                    <Stat label="Reg." value={selectedUnit.stats.reg} color="text-cyan-400" />
+            {/* 3D OBJECTS LAYER (ENVIRONMENT & UNITS) */}
+            <div className="absolute inset-0 z-20 pointer-events-none transform-style-3d">
+              
+              {/* TERRAIN FEATURES */}
+              {BACH_DANG_HEXES.map(tile => {
+                const { x, y } = hexToPixel(tile.col, tile.row);
+                if (tile.terrain !== 'forest' && tile.terrain !== 'hill' && tile.terrain !== 'stakes') return null;
+                return (
+                  <div
+                    key={`env-${tile.col}-${tile.row}`}
+                    className="absolute flex items-end justify-center pointer-events-none"
+                    style={{ left: x, top: y, transform: `translate(-50%, -85%) rotateZ(${-camera.yaw}deg) rotateX(${-camera.pitch}deg)`, transformOrigin: 'bottom center', zIndex: Math.round(y) }}
+                  >
+                    {tile.terrain === 'forest' && (
+                      <div className="relative flex items-end justify-center text-4xl filter drop-shadow-2xl brightness-90 saturate-50">
+                        <span className="absolute -ml-8 mb-1 scale-75 opacity-90">🌲</span>
+                        <span className="absolute ml-8 -mb-2 scale-90 opacity-95">🌲</span>
+                        <span className="relative z-10 scale-110">🌲</span>
+                      </div>
+                    )}
+                    {tile.terrain === 'hill' && (
+                      <div className="text-6xl filter drop-shadow-[0_10px_10px_rgba(0,0,0,0.8)] brightness-75 sepia-[0.4] scale-[1.3]">⛰️</div>
+                    )}
+                    {tile.terrain === 'stakes' && (
+                      <div className={`flex items-end gap-1.5 transition-opacity duration-1000 ${tideTurnsLeft <= 1 ? 'opacity-100' : 'opacity-20'} drop-shadow-xl`}>
+                        {[1, 2, 3].map(i => (
+                          <div key={i} className="w-1.5 h-12 bg-gradient-to-b from-[#a37637] to-[#3a2613] rounded-t shadow-black" style={{ transform: `rotate(${(i-2)*12}deg) translateY(${Math.abs(i-2)*5}px)` }} />
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500">Chọn một đơn vị trên bàn cờ.</p>
-            )}
-          </div>
+                )
+              })}
 
-          {/* Terrain advantage indicator */}
-          <div className="bg-imperial-lacquer/90 border border-imperial-border rounded-xl p-3">
-            <div className="text-[10px] uppercase text-slate-400 tracking-wide mb-1">Địa hình đang chọn</div>
-            {selectedTile ? (
-              <>
-                <div className="text-xs text-slate-300">
-                  Ô chiến trường: <span className="font-bold text-white">{TERRAIN_NAME_VI[selectedTile.terrain]}</span>
-                </div>
-                <div className="text-xs font-bold text-imperial-lightgold mt-0.5">
-                  {selectedTile.effect || (selectedTile.terrain === 'hill' ? '+20% tầm bắn' : selectedTile.terrain === 'mud' ? 'Giảm tốc độ di chuyển' : 'Không có hiệu ứng đặc biệt')}
-                </div>
-              </>
-            ) : (
-              <p className="text-xs text-slate-500">Chọn một ô trên bàn cờ để xem chi tiết.</p>
-            )}
-          </div>
+              {/* UNITS */}
+              {units.map((unit) => {
+                const isSelected = unit.unit_id === selectedUnitId;
+                return (
+                  <UnitEntity cameraPitch={camera.pitch} cameraYaw={camera.yaw}
+                    key={unit.unit_id}
+                    unit={unit}
+                    isSelected={isSelected}
+                    onSelect={() => handleSelectHex(unit.col, unit.row)}
+                    actionEvents={actionEvents}
+                  />
+                );
+              })}
 
-          {/* Battle log */}
-          <div className="bg-imperial-lacquer/90 border border-imperial-border rounded-xl p-3 flex-1">
-            <div className="text-[10px] uppercase text-slate-400 tracking-wide mb-1.5 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-imperial-gold" /> Diễn Biến Trận Đấu
+              {/* EFFECTS (Damage popups) */}
+              {popups.map(p => {
+                const { x, y } = hexToPixel(p.col, p.row);
+                return (
+                  <div 
+                    key={p.id}
+                    className="absolute pointer-events-none font-bold font-display text-4xl drop-shadow-[0_4px_4px_rgba(0,0,0,1)] z-50 animate-[dmg-float_1.2s_ease-out_forwards]"
+                    style={{ left: x, top: y, color: p.color, zIndex: 9999 }}
+                  >
+                    -{p.dmg}
+                  </div>
+                )
+              })}
+
             </div>
-            <ul className="space-y-1.5 text-[11px] text-slate-300">
-              {log.map((entry, i) => (
-                <li key={i} className={i === 0 ? 'text-white font-medium' : 'text-slate-500'}>&bull; {entry}</li>
-              ))}
-            </ul>
           </div>
         </div>
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Tactical action bar                                                */}
+      {/* UI OVERLAYS (HUD) */}
       {/* ------------------------------------------------------------------ */}
-      <div className="mt-3 bg-imperial-lacquer/90 border border-imperial-gold/40 rounded-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="text-xs text-slate-400">
-          {turnSide === 'player' ? (
-            <span className="text-emerald-400 font-semibold">Lượt của quân ta — chọn hành động cho {selectedUnit?.name || 'đơn vị'}.</span>
-          ) : (
-            <span className="text-red-400 font-semibold animate-pulse">Quân Mông Cổ đang hành động...</span>
-          )}
+      
+      {/* Vignette Overlay for atmosphere */}
+      <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_150px_rgba(0,0,0,0.9)] z-30" />
+
+      {/* Top HUD */}
+      <div className="absolute top-0 left-0 right-0 p-4 pointer-events-none flex justify-between items-start z-40">
+        <div className="pointer-events-auto flex items-center bg-gradient-to-r from-[#1a0f0a]/90 to-black/80 border border-[#8b744f] rounded-full p-1.5 pr-6 backdrop-blur-md shadow-lg">
+           <div className="w-11 h-11 rounded-full border-2 border-[#C9A44C] overflow-hidden bg-blue-950 shrink-0">
+             {faction.image ? <img src={faction.image} alt="Faction" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-white font-serif font-bold">ĐV</div>}
+           </div>
+           <div className="ml-3">
+             <div className="text-[#C9A44C] font-bold font-serif text-sm uppercase leading-none tracking-wide">{faction.name || 'Đại Việt'}</div>
+             <div className="flex items-center gap-2 mt-1">
+               <div className="w-16 h-1.5 bg-black/50 rounded-full overflow-hidden">
+                 <div className="h-full bg-emerald-500" style={{ width: `${(playerPower/maxPlayerPower)*100}%` }} />
+               </div>
+               <span className="text-[10px] text-white font-mono">{playerPower}</span>
+             </div>
+           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {ACTIONS.map((action) => (
-            <button
-              key={action.key}
-              onClick={() => handleAction(action.key)}
-              disabled={turnSide !== 'player' || !selectedUnit || selectedUnit.side !== 'player'}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all
-                ${activeAction === action.key
-                  ? 'bg-imperial-gold text-imperial-darkred border-imperial-gold'
-                  : 'bg-black/40 border-slate-700 text-slate-200 hover:border-imperial-gold/60'
-                } disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer`}
-            >
-              {action.icon}
-              <span>{action.label}</span>
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => void handleSettleBattle()}
-            disabled={settling || Boolean(battleResult)}
-            className="flex items-center gap-1.5 rounded-xl border border-amber-400 bg-imperial-darkred px-3 py-2 text-xs font-bold text-imperial-lightgold disabled:opacity-50"
-          >
-            {settling ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Trophy className="h-4 w-4" />}
-            <span>{settling ? 'Đang ghi nhận…' : battleResult ? 'Đã chốt kết quả' : 'Chốt trận & nhận HKDV'}</span>
+
+        <div className="pointer-events-auto flex flex-col items-center bg-gradient-to-b from-[#1a0f0a]/90 to-black/80 border-b border-x border-[#8b744f] rounded-b-2xl px-10 py-3 -mt-4 shadow-xl backdrop-blur-md">
+           <h2 className="text-[#F3E5AB] font-bold font-serif text-xl uppercase tracking-widest drop-shadow-md">Bạch Đằng 1288</h2>
+           <div className={`text-xs font-bold mt-1 ${turnSide === 'player' ? 'text-emerald-400' : 'text-red-400 animate-pulse'}`}>
+             {turnSide === 'player' ? 'Quân ta đang hành động' : 'Địch đang điều binh...'}
+           </div>
+           <div className="mt-2 flex items-center gap-2 bg-[#0a1e2d] border border-[#1a5c6b] px-3 py-1 rounded-full shadow-inner">
+              <Waves className={`w-3.5 h-3.5 ${tideTurnsLeft <= 1 ? 'text-blue-300' : 'text-cyan-400'}`} />
+              <span className="text-[10px] font-bold text-cyan-200 uppercase tracking-wider">Thủy triều {tideTurnsLeft <= 1 ? 'cạn' : 'đang rút'}</span>
+              <div className="flex gap-0.5 ml-1">
+                {[1, 2, 3].map(i => <div key={i} className={`w-2 h-2 rounded-full ${i <= tideTurnsLeft ? 'bg-cyan-400' : 'bg-slate-700'}`} />)}
+              </div>
+           </div>
+        </div>
+
+        <div className="pointer-events-auto flex items-center justify-end bg-gradient-to-l from-[#2a0f0a]/90 to-black/80 border border-[#8b744f] rounded-full p-1.5 pl-6 backdrop-blur-md shadow-lg">
+           <div className="mr-3 text-right">
+             <div className="text-red-400 font-bold font-serif text-sm uppercase leading-none tracking-wide">Mông Nguyên</div>
+             <div className="flex items-center justify-end gap-2 mt-1">
+               <span className="text-[10px] text-white font-mono">{enemyPower}</span>
+               <div className="w-16 h-1.5 bg-black/50 rounded-full overflow-hidden flex justify-end">
+                 <div className="h-full bg-red-500 w-full" />
+               </div>
+             </div>
+           </div>
+           <div className="w-11 h-11 rounded-full border-2 border-red-600 bg-red-950 flex items-center justify-center shrink-0">
+             <Swords className="w-5 h-5 text-red-300" />
+           </div>
+        </div>
+      </div>
+
+      {/* Bottom HUD */}
+      <div className="absolute bottom-0 left-0 right-0 p-4 pointer-events-none flex justify-between items-end z-40">
+        
+        <div className="flex flex-col gap-3 pointer-events-auto w-64">
+          <button onClick={onExitBattle} className="self-start flex items-center gap-1.5 bg-black/60 hover:bg-black/80 border border-slate-700 px-3 py-1.5 rounded-full text-[10px] text-slate-300 uppercase tracking-widest transition-colors backdrop-blur-sm">
+            <ArrowLeft className="w-3 h-3" /> Rút lui
           </button>
+          <div className="bg-gradient-to-br from-[#1c140f]/95 to-black/95 border border-[#8b744f] rounded-xl overflow-hidden shadow-xl backdrop-blur-md">
+            <div className="bg-[#2a1810] px-3 py-1.5 border-b border-[#8b744f]/50 flex items-center gap-1.5">
+              <MousePointer2 className="w-3.5 h-3.5 text-[#C9A44C]" />
+              <span className="text-[10px] uppercase text-[#C9A44C] font-bold tracking-wider">Thông Tin</span>
+            </div>
+            <div className="p-3">
+              {selectedUnit ? (
+                <>
+                  <div className="flex gap-3 items-center mb-3">
+                    <div className={`w-12 h-12 rounded flex items-center justify-center border-2 ${selectedUnit.side === 'player' ? 'border-blue-500/50 bg-blue-900/30' : 'border-red-500/50 bg-red-900/30'} shrink-0`}>
+                      <span className="text-xl">{selectedUnit.icon === 'spear' ? '⚔' : selectedUnit.icon === 'archer' ? '🏹' : selectedUnit.icon === 'elephant' ? '🐘' : '🐎'}</span>
+                    </div>
+                    <div>
+                      <div className="font-serif font-bold text-white text-sm leading-tight">{selectedUnit.name}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">{selectedUnit.side === 'player' ? 'Đại Việt' : 'Địch'} • Binh chủng</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <div className="bg-black/40 rounded px-2 py-1 flex justify-between border border-slate-800"><span className="text-slate-500">HP</span><span className="text-emerald-400 font-bold font-mono">{selectedUnit.stats.at}</span></div>
+                    <div className="bg-black/40 rounded px-2 py-1 flex justify-between border border-slate-800"><span className="text-slate-500">ATK</span><span className="text-red-400 font-bold font-mono">{selectedUnit.stats.atk}</span></div>
+                    <div className="bg-black/40 rounded px-2 py-1 flex justify-between border border-slate-800"><span className="text-slate-500">DEF</span><span className="text-blue-400 font-bold font-mono">{selectedUnit.stats.def}</span></div>
+                    <div className="bg-black/40 rounded px-2 py-1 flex justify-between border border-slate-800"><span className="text-slate-500">LĐ</span><span className="text-amber-400 font-bold font-mono">{selectedUnit.stats.asTk}</span></div>
+                  </div>
+                </>
+              ) : <div className="text-xs text-slate-500 text-center py-4">Chưa chọn đơn vị</div>}
+            </div>
+            {selectedTile && (
+              <div className="bg-black/60 p-2 border-t border-[#8b744f]/30">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-400">Địa hình: <span className="text-white font-bold">{TERRAIN_NAME_VI[selectedTile.terrain]}</span></span>
+                </div>
+                {selectedTile.effect && <div className="text-[9px] text-[#C9A44C] mt-0.5 leading-tight">{selectedTile.effect}</div>}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="pointer-events-auto flex flex-col items-center justify-end pb-4">
+          <div className="flex bg-[#0c1a24]/90 border border-[#8b744f] rounded-full p-1.5 shadow-2xl backdrop-blur-md gap-1">
+             <button onClick={() => setIsAuto(!isAuto)} className={`px-4 py-2 rounded-full text-xs font-bold font-serif uppercase tracking-widest transition-colors ${isAuto ? 'bg-gradient-to-r from-emerald-700 to-emerald-900 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-black/50 text-slate-400 hover:text-white'}`}>
+                AUTO {isAuto && '●'}
+             </button>
+             
+             <div className="w-px bg-[#8b744f]/50 mx-1 my-1" />
+             
+             <select 
+               value={strategy}
+               onChange={e => setStrategy(e.target.value as any)}
+               className="appearance-none bg-black/50 hover:bg-black text-[#C9A44C] border border-transparent hover:border-[#8b744f]/50 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider text-center cursor-pointer outline-none"
+             >
+               <option value="balanced">⚖ Cân Bằng</option>
+               <option value="aggressive">⚔ Tấn Công</option>
+               <option value="defensive">🛡 Phòng Thủ</option>
+             </select>
+
+             <div className="w-px bg-[#8b744f]/50 mx-1 my-1" />
+
+             {[1, 2, 4].map(s => (
+               <button key={s} onClick={() => setBattleSpeed(s)} className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${battleSpeed === s ? 'bg-[#8b5e24] text-white border border-[#C9A44C]' : 'bg-black/50 text-slate-400 hover:text-white border border-transparent hover:border-[#8b744f]/50'}`}>
+                 ×{s}
+               </button>
+             ))}
+
+             <button onClick={() => setIsPaused(!isPaused)} className={`w-10 h-10 ml-1 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${isPaused ? 'bg-red-800 text-white border border-red-400 animate-pulse' : 'bg-black/50 text-slate-400 hover:text-white border border-transparent hover:border-[#8b744f]/50'}`}>
+               ⏸
+             </button>
+          </div>
+          
+          {!isAuto && selectedUnit && selectedUnit.side === 'player' && turnSide === 'player' && !battleResult && (
+             <div className="flex gap-2 mt-4 animate-in slide-in-from-bottom-2">
+               {ACTIONS.map(action => {
+                  const isActive = activeAction === action.key;
+                  return (
+                    <button key={action.key} onClick={() => handleAction(action.key)} className={`px-4 py-1.5 rounded text-[10px] uppercase font-bold flex items-center gap-1.5 border transition-colors ${isActive ? 'bg-[#8b5e24] text-white border-[#C9A44C]' : 'bg-black/80 text-slate-300 border-slate-700 hover:bg-slate-800'}`}>
+                      {action.label}
+                    </button>
+                  )
+               })}
+               <button onClick={advanceTurn} className="px-4 py-1.5 rounded text-[10px] uppercase font-bold border border-slate-700 bg-black/60 text-slate-400 hover:text-white hover:bg-slate-800 ml-2">Qua Lượt</button>
+             </div>
+          )}
+        </div>
+
+        <div className="flex flex-col items-end gap-3 pointer-events-auto w-64">
+          <div className="bg-gradient-to-br from-[#1c140f]/95 to-black/95 border border-[#8b744f] rounded-xl p-3 w-full backdrop-blur-md shadow-xl">
+            <div className="flex justify-between items-center mb-2 border-b border-[#8b744f]/30 pb-2">
+              <span className="text-[10px] uppercase text-[#C9A44C] font-bold tracking-wider">Lợi Thế</span>
+              <span className="text-xs font-mono font-bold text-emerald-400">+{Math.round((playerPower / (playerPower + enemyPower + 1)) * 100)}%</span>
+            </div>
+            <div className="text-[9px] uppercase text-slate-500 tracking-widest mb-1.5">Nhật ký chiến trường</div>
+            <div className="space-y-1 h-20 overflow-hidden flex flex-col justify-end">
+              {log.slice().reverse().map((entry, i) => <div key={i} className={`text-[10px] leading-tight ${i === log.length - 1 ? 'text-white font-bold' : 'text-slate-500'}`}>{entry}</div>)}
+            </div>
+          </div>
+
+          {battleResult || settlementError ? (
+            <div className="bg-black/90 border border-[#8b744f] p-3 rounded-xl w-full backdrop-blur-md shadow-[0_0_20px_rgba(201,164,76,0.3)] text-center animate-in zoom-in-95">
+               {battleResult && (
+                 <>
+                   <div className={`font-serif font-bold text-lg mb-2 ${battleResult.victory ? 'text-emerald-400' : 'text-red-400'}`}>{battleResult.victory ? 'ĐẠI THẮNG' : 'THẤT BẠI'}</div>
+                   <div className="text-[10px] text-slate-400 mb-3">Thời gian: {(log.length * 1.5).toFixed(1)}s</div>
+                   
+                   <div className="bg-[#1a2e1d] border border-emerald-900 rounded p-2 mb-3">
+                      <div className="text-[10px] text-emerald-400 uppercase font-bold mb-1 border-b border-emerald-800/50 pb-1">Phần Thưởng</div>
+                      {rewardClaim && <div className="text-[11px] font-bold text-[#F3E5AB]">+5 HKDV</div>}
+                      <div className="text-[11px] text-emerald-200">+100 Exp</div>
+                   </div>
+                   <button onClick={onExitBattle} className="w-full py-2 bg-gradient-to-r from-[#8b5e24] to-[#C9A44C] hover:brightness-110 text-black text-xs font-bold uppercase tracking-widest rounded shadow-lg transition-all">Rời chiến trường</button>
+                 </>
+               )}
+               {settlementError && <div className="text-xs text-red-400">{settlementError}</div>}
+            </div>
+          ) : null}
         </div>
       </div>
-
-      {(battleResult || settlementError) && (
-        <div className="mt-3 rounded-2xl border border-imperial-gold/40 bg-imperial-lacquer/90 p-4 text-xs">
-          {battleResult && (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className={`font-display font-bold ${battleResult.victory ? 'text-emerald-300' : 'text-red-300'}`}>
-                  {battleResult.victory ? 'Chiến thắng đã được backend xác nhận' : 'Trận đánh chưa đủ điều kiện nhận HKDV'}
-                </div>
-                <div className="mt-1 font-mono text-[10px] text-slate-500">Battle ID: {battleResult.battle_id}</div>
-                {player.is_guest && battleResult.victory && (
-                  <div className="mt-1 text-amber-300">Đăng nhập bằng ví Solana để nhận reward on-chain.</div>
-                )}
-              </div>
-              {rewardClaim && (
-                <div className="text-right">
-                  <div className={rewardClaim.status === 'confirmed' ? 'text-emerald-300' : 'text-amber-300'}>
-                    5 HKDV · {rewardClaim.status === 'confirmed' ? 'đã xác nhận' : 'đang đối soát'}
-                  </div>
-                  {rewardClaim.explorer_url && (
-                    <a href={rewardClaim.explorer_url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[10px] text-amber-300 underline">
-                      Solana Explorer <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-          {settlementError && <div className="mt-2 text-red-300">{settlementError}</div>}
-        </div>
-      )}
-
     </div>
   );
 };
 
-interface StatProps {
-  label: string;
-  value: number;
-  color: string;
-}
-
-const Stat: React.FC<StatProps> = ({ label, value, color }) => (
-  <div className="flex items-center justify-between bg-black/30 rounded px-1.5 py-1">
-    <span className="text-slate-500">{label}</span>
-    <span className={`font-mono font-bold ${color}`}>{value}</span>
-  </div>
-);

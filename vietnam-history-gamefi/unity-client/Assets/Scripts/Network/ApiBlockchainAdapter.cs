@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Networking;
 using VnHistoryGameFi.Interfaces;
 
 namespace VnHistoryGameFi.Network
@@ -31,7 +32,14 @@ namespace VnHistoryGameFi.Network
                 Debug.LogError("[ApiBlockchainAdapter] Chưa gán ApiConfig — không thể gọi backend thật.");
                 return;
             }
-            _client = new ApiClient(config, this);
+
+            _client = ApiClient.Instance;
+            if (_client == null)
+            {
+                var clientObject = new GameObject("ApiClient");
+                _client = clientObject.AddComponent<ApiClient>();
+            }
+            _client.Initialize(config);
         }
 
         public void RequestNonce(string chain, string wallet,
@@ -78,8 +86,8 @@ namespace VnHistoryGameFi.Network
             Action<PlayerDto> onSuccess, Action<string> onError)
         {
             string path = string.IsNullOrEmpty(chain)
-                ? $"/players/{wallet}"
-                : $"/players/{wallet}?chain={chain}";
+                ? $"/players/{UnityWebRequest.EscapeURL(wallet)}"
+                : $"/players/{UnityWebRequest.EscapeURL(wallet)}?chain={UnityWebRequest.EscapeURL(chain)}";
             _client.Get<PlayerDto>(path, onSuccess, onError);
         }
 
@@ -99,7 +107,7 @@ namespace VnHistoryGameFi.Network
                 nft_object_id = nftObjectId,
                 tx_digest = txDigest,
             };
-            _client.Post<PlayerDto>($"/players/{wallet}/faction", body, onSuccess, onError);
+            _client.Post<PlayerDto>($"/players/{UnityWebRequest.EscapeURL(wallet)}/faction", body, onSuccess, onError);
         }
 
         public void ClaimReward(string wallet, string battleId,
@@ -120,7 +128,10 @@ namespace VnHistoryGameFi.Network
         public void GetTransaction(string chain, string digest,
             Action<TransactionDto> onSuccess, Action<string> onError)
         {
-            _client.Get<TransactionDto>($"/blockchain/{chain}/transaction/{digest}", onSuccess, onError);
+            _client.Get<TransactionDto>(
+                $"/blockchain/{UnityWebRequest.EscapeURL(chain)}/transaction/{UnityWebRequest.EscapeURL(digest)}",
+                onSuccess,
+                onError);
         }
     }
 }

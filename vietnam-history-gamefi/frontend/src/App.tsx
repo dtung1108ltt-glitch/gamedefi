@@ -31,6 +31,11 @@ export const App: React.FC = () => {
     window.scrollTo(0, 0);
   }, [step]);
 
+  useLayoutEffect(() => {
+    const stopKeepAlive = apiService.startRenderKeepAlive();
+    return () => stopKeepAlive();
+  }, []);
+
   // Guest player state (F2P — no wallet required)
   const [guestPlayer, setGuestPlayer] = useState<Player | null>(null);
 

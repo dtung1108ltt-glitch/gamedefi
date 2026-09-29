@@ -79,6 +79,6 @@ Không commit keypair trong `target/`. Không có deployment được tự thự
 - Marketplace/P2P chặn thao tác ghi bằng 503; danh sách ban đầu trống, không seed ownership giả.
 - DEX HKDV/SOL đã hoạt động trên Raydium CPMM Devnet; ví người chơi tự ký, backend xác minh đúng program/pool rồi gửi RPC. Swap intent, trạng thái và signature được lưu trong PostgreSQL, có idempotency và đối soát. Mainnet tiếp tục dùng Jupiter và cần `JUPITER_API_KEY`.
 - Cấu hình Mainnet được kiểm tra nghiêm ngặt; cặp giao dịch dự kiến là SOL/HKDV qua Jupiter. Mainnet chưa được deploy. Xem [cổng phát hành giai đoạn 8](docs/mainnet-release.md) trước khi dùng SOL thật.
-- Unity là client thử nghiệm, cần bridge tới ví Solana; không phải client chính.
+- Unity là client thử nghiệm gọi FastAPI cho đăng nhập Guest/wallet, quân sư, battle server-authoritative, leaderboard và battle reward claim. Xem [Unity client setup](unity-client/README.md); Unity vẫn cần wallet SDK/bridge thật để ký challenge và thao tác ví, và không phải frontend chính.
 
 Chi tiết: [Blockchain](docs/blockchain.md), [HKDV token](docs/game-token.md), [Reward distributor](docs/reward-distributor.md), [API](docs/api.md), [Kiến trúc](docs/architecture.md).

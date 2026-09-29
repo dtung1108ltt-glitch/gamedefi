@@ -1,71 +1,164 @@
-# Unity Client (thử nghiệm)
+# Unity client - FastAPI / Solana Devnet
 
-Đây là client Unity gọi trực tiếp backend thật (FastAPI), thay cho bản
-`script/` cũ (chỉ mô phỏng bằng `Debug.Log`, hoàn toàn tách biệt khỏi hệ thống).
-Client web chính thức của dự án vẫn là `frontend/` (React) — thư mục này là
-một client thay thế/bổ sung, **không phải bản thay thế frontend chính**.
+Unity client thử nghiệm gọi backend FastAPI thật qua `UnityWebRequest`. Client
+gửi input trận đấu; backend xác thực session, tính kết quả trong
+`backend/app/domain/battle_engine.py`, ghi nhận eligibility và phân phối HKDV.
+Unity không tự tính kết quả trận và không giữ private key của distributor.
 
-## Trạng thái thật (đọc trước khi coi đây là "đã xong")
+## Những gì backend thực sự hỗ trợ
 
-| Phần | Trạng thái |
+| Chức năng | Endpoint / giới hạn |
 |---|---|
-| Gọi `GET /factions`, `GET /players/{wallet}`, `GET /players/{wallet}/rewards`, `GET /blockchain/{chain}/transaction/{digest}` | **Thật.** Qua `UnityWebRequest`, có xử lý lỗi HTTP/parse. |
-| Gọi `POST /auth/nonce`, `POST /auth/wallet`, `POST /players/{wallet}/faction`, `POST /rewards/claim` | **Thật về mặt network** (gửi đúng request thật lên backend thật). |
-| **Ký chữ ký ví** (điều kiện để `POST /auth/wallet` thành công) | **CHƯA có, và chưa thể có nếu chỉ dùng Unity C# thuần.** Xem mục dưới. |
-| Battle / Army / Quest / Leaderboard | Backend đã có API, nhưng Unity client này chưa nối các màn chơi vào các API đó nên vẫn mô phỏng cục bộ. |
-| Reward claim sau khi thắng trận local | **Chưa dùng được.** Backend chỉ nhận battle do backend tạo và trả 409 vì treasury/payout SOL chưa được triển khai. |
+| Đăng nhập Guest | `POST /auth/guest` với `{ "username": "..." }` |
+| Đăng nhập ví | `POST /auth/nonce`, ký challenge bằng ví thật, rồi `POST /auth/wallet` |
+| Đăng ký / đăng nhập mật khẩu | Chưa có `/auth/register` hoặc `/auth/login`; client không gửi password giả định |
+| Danh sách quân sư | `GET /advisors`; quyền sở hữu có thể kiểm tra ở `/advisors/{id}/ownership` |
+| Danh sách faction | `GET /factions`; guest chọn qua `POST /players/{wallet}/faction/select` |
+| Trận server-authoritative | `POST /battles` với `player_wallet`, `scenario_id`, `tactical_formation`, `advisor_id` |
+| Bảng xếp hạng | `GET /leaderboard` |
+| Claim thưởng trận | `POST /rewards/claim` với `wallet`, `battle_id`; yêu cầu bearer token và chiến thắng đã ghi nhận |
 
-## Vì sao không tự ký được chữ ký ví trong Unity
+Backend không trả `token_reward` hay `remaining_hp` trong kết quả battle. Battle
+trả `reward_rice`, `reward_gold`, `reward_xp`, `victory`, `battle_id` và
+`combat_logs`. HKDV được trả qua response của claim, trong đó `amount` là
+**base units**, `tx_digest` là signature và `explorer_url` là URL do backend tạo.
+Guest không thể claim on-chain.
 
-Luồng đăng nhập yêu cầu: `POST /auth/nonce` → **ký message bằng private key của
-ví người chơi** → `POST /auth/wallet` (backend xác minh chữ ký qua
-`verify_wallet_signature`, xem `backend/app/core/security.py`).
+Các DTO `LoginRequest` và `RegisterRequest` được giữ làm mẫu hợp đồng tương lai,
+nhưng không được gọi vì backend hiện không có hai API tương ứng. Wallet login
+tự tạo player lần đầu. Ở Unity không có SDK ký ví đi kèm: `GameUIManager` cho
+phép nhập chữ ký do ví thật tạo; không bao giờ nhập seed phrase/private key.
 
-Bước ký chữ ký **phải** xảy ra trong ví thật (Phantom, Solflare, v.v.), vì:
+## Mã nguồn
 
-- Project chưa tích hợp SDK hoặc bridge ví Solana cho Unity tương đương
-  `@solana/wallet-adapter-*` phía web.
-- Tự sinh chữ ký trong C# bắt buộc phải có private key nằm trong client —
-  **không bao giờ nên làm vậy** với ví thật của người chơi.
+- `Assets/Scripts/Models/Models.cs`: DTO theo backend và alias tương thích.
+- `Assets/Scripts/Network/ApiClient.cs`: singleton bền qua scene, `Task` /
+  `async-await`, bearer token, phân loại lỗi network / HTTP / JSON, event 401.
+- `Assets/Scripts/Network/ApiConfig.cs`: cấu hình base URL.
+- `Assets/Scripts/Services/AuthService.cs`: guest login và challenge wallet.
+- `Assets/Scripts/Services/BattleService.cs`: factions, quân sư có thể dùng,
+  battle server-authoritative và leaderboard.
+- `Assets/Scripts/Services/SolanaRewardManager.cs`: kiểm tra địa chỉ Base58,
+  gọi claim backend và mở Solana Explorer.
+- `Assets/Scripts/Core/GameUIManager.cs`: controller nối UI với các service.
+- `Assets/Scripts/Network/ApiBlockchainAdapter.cs`: adapter tương thích các
+  luồng faction/blockchain sẵn có trong Unity client.
 
-`ApiBlockchainAdapter.VerifyWallet()` vì vậy **chủ động từ chối** gọi API nếu
-`signature` rỗng, thay vì giả một chữ ký để trông như "chạy được". Hai hướng
-khả thi để hoàn thiện phần này (không nằm trong phạm vi đã làm ở đây):
+## Cấu hình base URL
 
-1. **Build WebGL** thay vì build native, rồi dùng `.jslib` bridge gọi ví
-   trình duyệt qua provider Phantom/Solflare (`window.solana`),
-   hoặc
-2. Tích hợp SDK ví mobile qua deep link (WalletConnect-style) cho build
-   Android/iOS.
+Chạy backend trực tiếp bằng:
 
-## Cách mở project
+```powershell
+cd .\backend
+python -m pip install -r requirements.txt
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-1. Cài Unity Hub, thêm project này qua **Add project from disk**, trỏ vào
-   thư mục `unity-client/`. Unity sẽ hỏi cài bản `2022.3.50f1` nếu chưa có
-   (khai trong `ProjectSettings/ProjectVersion.txt`) — có thể chọn bản LTS
-   2022.3.x mới nhất tương đương, không bắt buộc đúng tuyệt đối patch version.
-2. Unity sẽ tự sinh lại các file `.meta` còn thiếu khi import lần đầu — bình
-   thường, không cần lo.
-3. Chạy backend thật trước: `cd backend && uvicorn app.main:app --reload`
-   (mặc định `http://127.0.0.1:8000`).
-4. Trong Unity: `Assets > Create > VnHistoryGameFi > Api Config`, để
-   `baseUrl` mặc định là `http://127.0.0.1:8000` (khớp bước 3), kéo asset này
-   vào field `config` của `ApiBlockchainAdapter` trên GameObject trong scene.
-5. Gán `GameObject` chứa `ApiBlockchainAdapter` vào field `adapterBehaviour`
-   của `GameManager`.
+Tạo `ApiConfig` từ **Assets > Create > VnHistoryGameFi > Api Config**:
 
-## Test nhanh không cần ví thật
+- Unity Editor trên cùng máy, backend chạy `uvicorn app.main:app`:
+  `http://127.0.0.1:8000`
+- Backend được mount bởi `backend/app/hosted.py` tại `/api`:
+  `http://127.0.0.1:8000/api`
+- Android Emulator gọi backend trên máy host:
+  `http://10.0.2.2:8000` (hoặc thêm `/api` nếu chạy hosted app).
+- Thiết bị Android/iOS thật: dùng IP LAN của máy chạy backend, không dùng
+  `localhost`/`127.0.0.1` vì chúng trỏ về chính thiết bị.
 
-Dùng `MockBlockchainAdapter` thay `ApiBlockchainAdapter` trong field
-`adapterBehaviour` của `GameManager` để test UI/luồng cục bộ mà không cần bật
-backend hay có ví — nhưng **không dùng để demo** vì mọi dữ liệu đều giả
-(xem cảnh báo trong chính file `MockBlockchainAdapter.cs`).
+Backend phải bind ra interface phù hợp và firewall cho phép kết nối. HTTP thường
+chỉ dùng cho local development; cấu hình HTTPS cho môi trường public. Với WebGL,
+cần cấu hình `CORS_ALLOW_ORIGINS` ở backend để cho phép origin của trang game.
 
-## Việc chưa làm (ngoài phạm vi lần này)
+## Tạo scene và gán UI
 
-- Không có scene (`.unity`) hay UI (Canvas/Prefab) nào được tạo — chỉ có lớp
-  logic (`Assets/Scripts/`). Cần tự dựng UI trong Unity Editor.
-- Không compile-test được trong môi trường tạo ra các file này (không có
-  Unity Editor/trình biên dịch C# sẵn) — cần tự mở bằng Unity Editor để xác
-  nhận build sạch trước khi coi là hoàn thiện.
-- Chưa nối Battle/Army/Quest/Leaderboard của Unity vào các API backend đã có.
+Dùng Unity `2022.3.50f1` (xem `ProjectSettings/ProjectVersion.txt`). Tạo scene
+ví dụ `Game` với cấu trúc:
+
+```text
+Game
+├── ApiClient                  (ApiClient component, ApiConfig được gán)
+├── EventSystem
+└── Canvas                     (Canvas + CanvasScaler + GraphicRaycaster)
+    ├── AuthPanel
+    │   ├── GuestUsername      (TMP_InputField)
+    │   ├── GuestLoginButton   (Button)
+    │   ├── WalletAddress      (TMP_InputField)
+    │   ├── RequestChallenge   (Button)
+    │   ├── WalletChallenge    (TMP_Text)
+    │   ├── WalletSignature    (TMP_InputField)
+    │   ├── VerifyWallet       (Button)
+    │   └── RegisterButton     (Button, tùy chọn; hiển thị backend chưa hỗ trợ)
+    ├── PlayerStatus           (TMP_Text)
+    ├── LogoutButton           (Button)
+    ├── GamePanel
+    │   ├── FactionDropdown    (TMP_Dropdown; tự nạp từ API)
+    │   ├── SelectFaction      (Button; dành cho Guest)
+    │   ├── AdvisorDropdown    (TMP_Dropdown; quân sư thuộc quyền sử dụng)
+    │   ├── FormationDropdown  (TMP_Dropdown)
+    │   ├── ScenarioDropdown   (TMP_Dropdown)
+    │   ├── EnterBattle        (Button)
+    │   └── LeaderboardButton  (Button)
+    ├── BattleResultPanel
+    │   ├── BattleResult       (TMP_Text)
+    │   ├── CombatLog          (TMP_Text)
+    │   ├── RewardSummary      (TMP_Text)
+    │   ├── RecipientWallet    (TMP_InputField)
+    │   ├── ClaimReward        (Button)
+    │   └── OpenExplorer       (Button)
+    ├── Leaderboard            (TMP_Text)
+    ├── Status                 (TMP_Text)
+    └── GameUIManager          (GameUIManager component)
+```
+
+Trên `GameUIManager`, kéo `ApiConfig` vào **Api Config** và kéo đúng từng
+component UI vào các field cùng tên. Có thể để field leaderboard, registration
+hoặc wallet controls trống nếu không dùng. Đảm bảo `ApiClient` tồn tại trong
+scene và cùng được gán `ApiConfig`; nó sẽ giữ instance qua scene bằng
+`DontDestroyOnLoad`.
+
+Dropdown `FormationDropdown` phải có các option theo đúng thứ tự:
+
+1. `standard`
+2. `defensive`
+3. `aggressive`
+
+Dropdown `ScenarioDropdown` phải theo thứ tự sau (nhãn có thể hiển thị tiếng Việt):
+
+1. `bach_dang_1288`
+2. `rach_gam_1785`
+3. `ngoc_hoi_1789`
+4. `nhu_nguyet_1077`
+
+Controller dùng index để map dropdown sang các giá trị backend. Faction dropdown
+được nạp tự động. Sau khi guest chọn faction, quân sư khởi đầu được gán bởi
+backend; các quân sư sở hữu đã xác minh cũng hiện trong dropdown. Ví đã kết nối
+cần hoàn thành luồng mint/register faction NFT/proof riêng trước khi battle.
+
+## Luồng chạy thử
+
+1. Khởi động backend, kiểm tra `http://127.0.0.1:8000/health`.
+2. Mở scene, nhập Guest username rồi nhấn **Guest Login**.
+3. Guest chọn faction, nhấn **Select Faction**; backend gán quân sư khởi đầu.
+4. Chọn formation/scenario/quân sư và nhấn **Enter Battle**. Kết quả/log đến từ
+   backend; không dùng Unity local score để claim.
+5. Guest không nhận thưởng on-chain. Muốn thử claim, đăng nhập bằng ví đã mint
+   faction proof, ký nonce trong ví thật, thắng trận rồi claim bằng cùng địa chỉ
+   ví. Backend chỉ cấp HKDV nếu trận thắng hợp lệ và distributor đã cấu hình.
+6. Mở signature trong Solana Explorer bằng nút **Open Explorer**.
+
+`ApiClient.OnUnauthorized` được phát khi server trả HTTP 401; controller xóa
+trạng thái đăng nhập và yêu cầu người chơi đăng nhập lại. Lỗi mất mạng, lỗi HTTP
+(bao gồm 400/403/409/422/500) và lỗi parse JSON được phân loại riêng, không giả
+lập kết quả thành công.
+
+## Giới hạn cần biết
+
+- Password login/register chưa tồn tại trong FastAPI.
+- Unity không bao gồm Phantom/Solflare signing SDK; cần tích hợp wallet adapter
+  native/WebGL để xin chữ ký thay vì nhập thủ công.
+- Claim dùng battle ID và wallet của session. Quest claim hiện có endpoint riêng
+  `/rewards/quests/claim`, nhưng UI này chỉ claim phần thưởng battle.
+- Private key distributor chỉ nằm ở backend/Render secret file, tuyệt đối không
+  đưa vào Unity client.
+- Chưa thể xác nhận compile trong Unity Editor trên máy này; mở project bằng
+  Unity 2022.3.50f1 và kiểm tra Console trước khi build.

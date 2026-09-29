@@ -1,147 +1,299 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
+using VnHistoryGameFi.Models;
 
 namespace VnHistoryGameFi.Network
 {
-    /// <summary>
-    /// Client HTTP thật, gọi thẳng FastAPI backend qua UnityWebRequest.
-    /// Đây là phần THAY THẾ trực tiếp cho MockBlockchainAdapter cũ (chỉ Debug.Log
-    /// và trả ID giả ngẫu nhiên). Mọi request/response ở đây đi qua network thật,
-    /// nên game phải chạy kèm backend thật (xem README.md của thư mục này).
-    ///
-    /// Dùng pattern callback (Action) thay vì async/await để tương thích rộng với
-    /// các phiên bản Unity không hỗ trợ await trên UnityWebRequestAsyncOperation
-    /// (chỉ ổn định từ khoảng Unity 2023.1). Mọi gọi API phải chạy trong
-    /// MonoBehaviour có StartCoroutine (ví dụ ApiBlockchainAdapter kế thừa
-    /// MonoBehaviour).
-    /// </summary>
-    public class ApiClient
+    public class ApiClient : MonoBehaviour
     {
-        private readonly ApiConfig _config;
-        private readonly MonoBehaviour _coroutineHost;
-        private string _accessToken;
+        public static ApiClient Instance { get; private set; }
 
-        public ApiClient(ApiConfig config, MonoBehaviour coroutineHost)
+        [SerializeField] private ApiConfig config;
+
+        public event Action OnUnauthorized;
+
+        private string _baseUrl;
+        private string _accessToken;
+        private bool _isInitialized;
+
+        public string BaseURL => _baseUrl;
+
+        private void Awake()
         {
-            _config = config;
-            _coroutineHost = coroutineHost;
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+            if (config != null) Initialize(config);
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+        }
+
+        public void Initialize(ApiConfig apiConfig)
+        {
+            if (apiConfig == null) throw new ArgumentNullException(nameof(apiConfig));
+            if (string.IsNullOrWhiteSpace(apiConfig.baseUrl))
+                throw new InvalidOperationException("ApiConfig.baseUrl không được để trống.");
+
+            config = apiConfig;
+            _baseUrl = apiConfig.baseUrl.Trim().TrimEnd('/');
+            _isInitialized = true;
         }
 
         public void SetAccessToken(string accessToken)
         {
-            _accessToken = accessToken;
+            _accessToken = string.IsNullOrWhiteSpace(accessToken) ? null : accessToken.Trim();
         }
 
-        private void ApplyAuthorization(UnityWebRequest request)
+        public void ClearAccessToken()
         {
-            if (!string.IsNullOrEmpty(_accessToken))
+            _accessToken = null;
+        }
+
+        public Task<T> GetAsync<T>(string endpoint)
+        {
+            return SendAsync<T>(endpoint, UnityWebRequest.kHttpVerbGET, null);
+        }
+
+        public Task<T> PostAsync<T>(string endpoint, object payload)
+        {
+            if (payload == null) throw new ArgumentNullException(nameof(payload));
+            return SendAsync<T>(endpoint, UnityWebRequest.kHttpVerbPOST, JsonUtility.ToJson(payload));
+        }
+
+        public async Task<T[]> GetListAsync<T>(string endpoint)
+        {
+            string json = await SendAsync<string>(endpoint, UnityWebRequest.kHttpVerbGET, null);
+            if (string.IsNullOrWhiteSpace(json) || json == "[]") return Array.Empty<T>();
+            string wrapped = "{\"items\":" + json + "}";
+            EmptyArrayWrapper<T> response = JsonUtility.FromJson<EmptyArrayWrapper<T>>(wrapped);
+            return response?.items ?? Array.Empty<T>();
+        }
+
+        private Task<T> SendAsync<T>(string endpoint, string method, string jsonBody)
+        {
+            EnsureInitialized();
+            if (string.IsNullOrWhiteSpace(endpoint))
+                throw new ArgumentException("API endpoint không được để trống.", nameof(endpoint));
+
+            var completion = new TaskCompletionSource<T>();
+            StartCoroutine(SendRequestCoroutine(endpoint, method, jsonBody, completion));
+            return completion.Task;
+        }
+
+        private IEnumerator SendRequestCoroutine<T>(
+            string endpoint,
+            string method,
+            string jsonBody,
+            TaskCompletionSource<T> completion)
+        {
+            string url = _baseUrl + "/" + endpoint.TrimStart('/');
+            using (var request = new UnityWebRequest(url, method))
             {
-                request.SetRequestHeader("Authorization", "Bearer " + _accessToken);
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.timeout = config != null ? Mathf.Max(1, config.timeoutSeconds) : 15;
+                if (!string.IsNullOrEmpty(_accessToken))
+                    request.SetRequestHeader("Authorization", "Bearer " + _accessToken);
+
+                if (jsonBody != null)
+                {
+                    request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(jsonBody));
+                    request.SetRequestHeader("Content-Type", "application/json");
+                    request.SetRequestHeader("Accept", "application/json");
+                }
+
+                yield return request.SendWebRequest();
+
+                long statusCode = request.responseCode;
+                string responseBody = request.downloadHandler != null ? request.downloadHandler.text : string.Empty;
+                if (statusCode == 401)
+                {
+                    ClearAccessToken();
+                    try
+                    {
+                        OnUnauthorized?.Invoke();
+                    }
+                    catch (Exception handlerException)
+                    {
+                        Debug.LogException(handlerException, this);
+                    }
+                }
+
+                if (request.result == UnityWebRequest.Result.ConnectionError)
+                {
+                    completion.TrySetException(new NetworkError(
+                        $"Không thể kết nối API ({method} {endpoint}): {request.error}"));
+                    yield break;
+                }
+
+                if (request.result == UnityWebRequest.Result.ProtocolError)
+                {
+                    completion.TrySetException(new ApiHttpError(
+                        statusCode,
+                        method,
+                        endpoint,
+                        ExtractDetail(responseBody, request.error)));
+                    yield break;
+                }
+
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    completion.TrySetException(new NetworkError(
+                        $"Lỗi xử lý phản hồi API ({method} {endpoint}): {request.error}"));
+                    yield break;
+                }
+
+                if (typeof(T) == typeof(string))
+                {
+                    completion.TrySetResult((T)(object)responseBody);
+                    yield break;
+                }
+
+                try
+                {
+                    T parsed = JsonUtility.FromJson<T>(responseBody);
+                    if (parsed == null)
+                        throw new InvalidOperationException("API trả về JSON rỗng hoặc không đúng kiểu mong đợi.");
+                    completion.TrySetResult(parsed);
+                }
+                catch (Exception exception)
+                {
+                    completion.TrySetException(new ApiResponseParseError(
+                        $"Không thể đọc JSON từ {method} {endpoint}: {exception.Message}", exception));
+                }
             }
         }
 
+        // Callback wrappers retained for the existing faction/blockchain adapter.
         public void Get<TResponse>(string path, Action<TResponse> onSuccess, Action<string> onError)
         {
-            _coroutineHost.StartCoroutine(SendRequest<TResponse>(path, "GET", null, onSuccess, onError));
+            _ = CompleteCallback(GetAsync<TResponse>(path), onSuccess, onError);
         }
 
-        public void Post<TResponse>(string path, object bodyObject, Action<TResponse> onSuccess, Action<string> onError)
+        public void Post<TResponse>(
+            string path,
+            object bodyObject,
+            Action<TResponse> onSuccess,
+            Action<string> onError)
         {
-            string json = JsonUtility.ToJson(bodyObject);
-            _coroutineHost.StartCoroutine(SendRequest<TResponse>(path, "POST", json, onSuccess, onError));
+            _ = CompleteCallback(PostAsync<TResponse>(path, bodyObject), onSuccess, onError);
         }
 
-        /// <summary>
-        /// GET /factions trả về một JSON array thẳng ở root ([...]), không phải
-        /// object — JsonUtility không parse được dạng này trực tiếp. Bọc lại
-        /// thành {"items": [...]} trước khi parse bằng FactionListWrapper.
-        /// </summary>
-        public void GetFactionList(Action<FactionListWrapper> onSuccess, Action<string> onError)
+        public void GetFactionList(
+            Action<FactionListWrapper> onSuccess,
+            Action<string> onError)
         {
-            _coroutineHost.StartCoroutine(SendRawArrayRequest("/factions", onSuccess, onError));
+            _ = CompleteListCallback<FactionDto, FactionListWrapper>("/factions", onSuccess, onError);
         }
 
-        public void GetRewardList(string wallet, Action<RewardListWrapper> onSuccess, Action<string> onError)
+        public void GetRewardList(
+            string wallet,
+            Action<RewardListWrapper> onSuccess,
+            Action<string> onError)
         {
-            _coroutineHost.StartCoroutine(SendRawArrayRequest($"/players/{wallet}/rewards", onSuccess, onError));
+            _ = CompleteListCallback<RewardDto, RewardListWrapper>(
+                $"/players/{UnityWebRequest.EscapeURL(wallet)}/rewards", onSuccess, onError);
         }
 
-        private IEnumerator SendRequest<TResponse>(
-            string path, string method, string jsonBody,
-            Action<TResponse> onSuccess, Action<string> onError)
+        private async Task CompleteCallback<T>(
+            Task<T> request,
+            Action<T> onSuccess,
+            Action<string> onError)
         {
-            string url = _config.baseUrl.TrimEnd('/') + path;
-            using UnityWebRequest req = new UnityWebRequest(url, method);
-
-            if (jsonBody != null)
-            {
-                byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonBody);
-                req.uploadHandler = new UploadHandlerRaw(bodyRaw);
-                req.SetRequestHeader("Content-Type", "application/json");
-            }
-            req.downloadHandler = new DownloadHandlerBuffer();
-            req.timeout = _config.timeoutSeconds;
-            ApplyAuthorization(req);
-
-            yield return req.SendWebRequest();
-
-            if (req.result != UnityWebRequest.Result.Success)
-            {
-                string detail = ExtractErrorDetail(req.downloadHandler?.text);
-                onError?.Invoke($"[{method} {path}] HTTP {req.responseCode}: {detail ?? req.error}");
-                yield break;
-            }
-
             try
             {
-                TResponse parsed = JsonUtility.FromJson<TResponse>(req.downloadHandler.text);
-                onSuccess?.Invoke(parsed);
+                onSuccess?.Invoke(await request);
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
-                onError?.Invoke($"[{method} {path}] Parse JSON lỗi: {ex.Message}");
+                onError?.Invoke(exception.Message);
             }
         }
 
-        private IEnumerator SendRawArrayRequest<TWrapper>(
-            string path, Action<TWrapper> onSuccess, Action<string> onError)
+        private async Task CompleteListCallback<TItem, TWrapper>(
+            string endpoint,
+            Action<TWrapper> onSuccess,
+            Action<string> onError)
+            where TWrapper : new()
         {
-            string url = _config.baseUrl.TrimEnd('/') + path;
-            using UnityWebRequest req = UnityWebRequest.Get(url);
-            req.timeout = _config.timeoutSeconds;
-            ApplyAuthorization(req);
-
-            yield return req.SendWebRequest();
-
-            if (req.result != UnityWebRequest.Result.Success)
-            {
-                string detail = ExtractErrorDetail(req.downloadHandler?.text);
-                onError?.Invoke($"[GET {path}] HTTP {req.responseCode}: {detail ?? req.error}");
-                yield break;
-            }
-
             try
             {
-                string wrapped = "{\"items\":" + req.downloadHandler.text + "}";
-                TWrapper parsed = JsonUtility.FromJson<TWrapper>(wrapped);
-                onSuccess?.Invoke(parsed);
+                TItem[] items = await GetListAsync<TItem>(endpoint);
+                var wrapper = new TWrapper();
+                if (typeof(TWrapper) == typeof(FactionListWrapper))
+                    ((FactionListWrapper)(object)wrapper).items =
+                        new List<FactionDto>(Array.ConvertAll(items, item => (FactionDto)(object)item));
+                else if (typeof(TWrapper) == typeof(RewardListWrapper))
+                    ((RewardListWrapper)(object)wrapper).items =
+                        new List<RewardDto>(Array.ConvertAll(items, item => (RewardDto)(object)item));
+                onSuccess?.Invoke(wrapper);
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
-                onError?.Invoke($"[GET {path}] Parse JSON array lỗi: {ex.Message}");
+                onError?.Invoke(exception.Message);
             }
         }
 
-        private static string ExtractErrorDetail(string body)
+        private void EnsureInitialized()
         {
-            // FastAPI trả lỗi dạng {"detail": "..."}; cố lấy ra cho dễ đọc,
-            // không parse JSON đầy đủ để tránh phụ thuộc thêm thư viện.
-            if (string.IsNullOrEmpty(body)) return null;
-            int idx = body.IndexOf("\"detail\"", StringComparison.Ordinal);
-            return idx >= 0 ? body : null;
+            if (!_isInitialized)
+                throw new InvalidOperationException(
+                    "ApiClient chưa được cấu hình. Gán ApiConfig trong Inspector hoặc gọi Initialize() trước khi request.");
         }
+
+        private static string ExtractDetail(string body, string fallback)
+        {
+            if (string.IsNullOrWhiteSpace(body)) return fallback;
+            const string key = "\"detail\"";
+            int keyIndex = body.IndexOf(key, StringComparison.Ordinal);
+            if (keyIndex < 0) return body;
+
+            int colonIndex = body.IndexOf(':', keyIndex + key.Length);
+            if (colonIndex < 0) return body;
+            int firstQuote = body.IndexOf('"', colonIndex + 1);
+            if (firstQuote < 0) return body;
+            int secondQuote = body.IndexOf('"', firstQuote + 1);
+            return secondQuote > firstQuote
+                ? body.Substring(firstQuote + 1, secondQuote - firstQuote - 1)
+                : body;
+        }
+    }
+
+    public class NetworkError : Exception
+    {
+        public NetworkError(string message) : base(message) { }
+    }
+
+    public class ApiHttpError : Exception
+    {
+        public long StatusCode { get; }
+        public string Method { get; }
+        public string Endpoint { get; }
+
+        public ApiHttpError(long statusCode, string method, string endpoint, string detail)
+            : base($"API trả HTTP {statusCode} ({method} {endpoint}): {detail}")
+        {
+            StatusCode = statusCode;
+            Method = method;
+            Endpoint = endpoint;
+        }
+    }
+
+    public class ApiResponseParseError : Exception
+    {
+        public ApiResponseParseError(string message, Exception innerException)
+            : base(message, innerException) { }
     }
 }

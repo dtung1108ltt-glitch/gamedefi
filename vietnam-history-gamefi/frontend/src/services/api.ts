@@ -18,7 +18,11 @@ import {
 } from '../types';
 import type { DexConfig, DexExecution, DexOrder, DexOrderRequest, DexSwapHistory } from '../types/dex';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || (
+  typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+    ? `${window.location.origin}/api`
+    : 'http://127.0.0.1:8000'
+);
 
 async function apiError(response: Response): Promise<Error> {
   try {
@@ -186,7 +190,11 @@ class GameApiService {
 
   async checkHealth(): Promise<boolean> {
     try {
-      const res = await fetch(`${API_BASE_URL}/health`, { method: 'GET', signal: AbortSignal.timeout(1500) });
+      const res = await fetch(`${API_BASE_URL}/health`, {
+        method: 'GET',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(1500),
+      });
       const data = await res.json();
       this.isServerHealthy = data?.status === 'ok';
       return this.isServerHealthy;
@@ -194,6 +202,18 @@ class GameApiService {
       this.isServerHealthy = false;
       return false;
     }
+  }
+
+  startRenderKeepAlive(intervalMs: number = 5 * 60 * 1000): () => void {
+    if (typeof window === 'undefined') return () => undefined;
+
+    const run = () => {
+      void this.checkHealth();
+    };
+
+    run();
+    const timer = window.setInterval(run, intervalMs);
+    return () => window.clearInterval(timer);
   }
 
   // -------------------------------------------------------------------------
