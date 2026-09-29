@@ -4,7 +4,7 @@
 
 `POST /auth/nonce` → ví ký UTF-8 message bằng Ed25519 → chữ ký base58 →
 `POST /auth/wallet` → bearer token dùng cho mọi API ghi. Địa chỉ Solana phân biệt hoa/thường.
-Backend không giữ private key, không ký transaction thay người chơi.
+Backend không giữ private key của người chơi. Ví thưởng SOL của ứng dụng được cấu hình riêng trên server.
 
 ## Faction proof
 
@@ -60,9 +60,9 @@ cd blockchain/solana
 anchor test --provider.cluster localnet
 ```
 
-`bash scripts/test-solana-localnet.sh` build program, preload SBF vào local validator và kiểm tra faction cùng reward SPL end-to-end. Unit test không gửi giao dịch public network.
+`bash scripts/test-solana-localnet.sh` build program, preload SBF vào local validator và kiểm tra faction end-to-end. Unit test không gửi giao dịch public network.
 
 
-## Hồ sơ token cũ
+## Dữ liệu lịch sử
 
-Mint và reward distributor Devnet cũ vẫn tồn tại trên chuỗi; không thể xóa lịch sử Solana. Ứng dụng hiện không dùng token đó cho DEX hay thưởng mới. Hồ sơ triển khai được giữ trong [tài liệu lưu trữ](game-token.md) để đối soát.
+Các claim cũ được giữ bằng mã sự kiện và nhãn `LEGACY` để tránh phát SOL lần nữa. Các giao dịch đã ghi trên Solana không thể xóa khỏi chuỗi.

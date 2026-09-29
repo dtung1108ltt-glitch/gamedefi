@@ -46,4 +46,3 @@ if ! solana cluster-version --url http://127.0.0.1:8899 >/dev/null 2>&1; then
 fi
 
 python3 "$ROOT/scripts/test_solana_program.py"
-python3 "$ROOT/scripts/test_reward_distributor.py"

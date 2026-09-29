@@ -6,7 +6,6 @@ import httpx
 import pytest
 import base58
 from solders.pubkey import Pubkey
-from app.blockchain.borsh_utils import BorshWriter, anchor_discriminator
 from app.blockchain.solana_adapter import SolanaAdapter, SolanaAdapterError
 from app.core.config import Settings
 
@@ -64,7 +63,7 @@ def test_requires_real_program_configuration(program_id):
 def test_reward_and_server_mint_do_not_sign_or_simulate_transactions():
     adapter = SolanaAdapter(Settings())
     with pytest.raises(SolanaAdapterError):
-        adapter.send_reward(VECTOR["wallet"], 1, 1)
+        adapter.send_reward(VECTOR["wallet"], 1, bytes(32))
     with pytest.raises(SolanaAdapterError):
         adapter.mint_faction(VECTOR["wallet"], 5)
 
@@ -106,120 +105,3 @@ def test_verifies_exact_mint_instruction_for_wallet_pda_and_faction():
     assert not adapter.verify_faction_mint(
         VECTOR["wallet"], VECTOR["program_id"], VECTOR["faction_id"], "signature"
     )
-
-
-def test_reads_fixed_supply_game_token_mint():
-    def handler(request):
-        body = json.loads(request.content)
-        assert body["method"] == "getAccountInfo"
-        assert body["params"][0] == "45kZL6u62pbEmLiiZuUeuPWcotqZb8DLMmaPD5tNs1qm"
-        assert body["params"][1]["encoding"] == "jsonParsed"
-        return httpx.Response(200, json={"result": {"value": {
-            "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-            "data": {"program": "spl-token", "parsed": {"type": "mint", "info": {
-                "decimals": 6,
-                "supply": "1000000000000000",
-                "isInitialized": True,
-                "mintAuthority": None,
-                "freezeAuthority": None,
-            }}},
-        }}})
-
-    adapter = SolanaAdapter(Settings(), httpx.Client(transport=httpx.MockTransport(handler)))
-    info = adapter.get_token_mint_info("45kZL6u62pbEmLiiZuUeuPWcotqZb8DLMmaPD5tNs1qm")
-    assert info["supply"] == "1000000000000000"
-    assert info["decimals"] == 6
-    assert info["mint_authority"] is None
-    assert info["freeze_authority"] is None
-
-
-@pytest.mark.parametrize("value", [None, {"owner": VECTOR["program_id"], "data": {}},
-    {"owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "data": {"parsed": {"type": "account", "info": {}}}}])
-def test_rejects_missing_or_spoofed_game_token_mint(value):
-    response = httpx.Response(200, json={"result": {"value": value}})
-    adapter = SolanaAdapter(Settings(), httpx.Client(transport=httpx.MockTransport(lambda request: response)))
-    with pytest.raises(SolanaAdapterError):
-        adapter.get_token_mint_info("45kZL6u62pbEmLiiZuUeuPWcotqZb8DLMmaPD5tNs1qm")
-
-
-def test_reads_game_token_treasury_account():
-    def handler(request):
-        body = json.loads(request.content)
-        assert body["method"] == "getAccountInfo"
-        return httpx.Response(200, json={"result": {"value": {
-            "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-            "data": {"program": "spl-token", "parsed": {"type": "account", "info": {
-                "mint": "45kZL6u62pbEmLiiZuUeuPWcotqZb8DLMmaPD5tNs1qm",
-                "owner": "HUQHQv86C6sqqEWMpq8VcUs6kmQo78EsDV9cgEC9GaLK",
-                "state": "initialized",
-                "tokenAmount": {"amount": "1000000000000000", "decimals": 6},
-            }}},
-        }}})
-
-    adapter = SolanaAdapter(Settings(), httpx.Client(transport=httpx.MockTransport(handler)))
-    info = adapter.get_token_account_info("3d3aVnwqsre4AfnvVCMvkLvLZ7YbxY3A6P5Er3wKg1Sp")
-    assert info["mint"] == "45kZL6u62pbEmLiiZuUeuPWcotqZb8DLMmaPD5tNs1qm"
-    assert info["owner"] == "HUQHQv86C6sqqEWMpq8VcUs6kmQo78EsDV9cgEC9GaLK"
-    assert info["amount"] == "1000000000000000"
-
-def test_reads_reward_distributor_config():
-    program_id = "8qUBTgX99v5EhxbAaxuqS94rgfRhnLrTgW66Gh9BvLKN"
-    admin = "oV3Y4Z6DvPvBWGvbgLvfjxHoyVbWZkr1KHmNMHLDA7T"
-    distributor = "6RigAPgKTdEwxmRqaoMiJj6GYnkipTSwRRc9Wkw79rTv"
-    mint = "45kZL6u62pbEmLiiZuUeuPWcotqZb8DLMmaPD5tNs1qm"
-    vault = "9ngszc2V6RBRxgtagHCsn6s369aZoKWHb8uXShZAhoS7"
-    raw = anchor_discriminator("account", "RewardConfig") + (
-        BorshWriter()
-        .pubkey(bytes(Pubkey.from_string(admin)))
-        .pubkey(bytes(Pubkey.from_string(distributor)))
-        .pubkey(bytes(Pubkey.from_string(mint)))
-        .pubkey(bytes(Pubkey.from_string(vault)))
-        .u8(254)
-        .u8(0)
-        .u64(1_000_000_000)
-        .u64(5_000_000)
-        .u64(1)
-        .bytes()
-    )
-
-    def handler(request):
-        body = json.loads(request.content)
-        assert body["method"] == "getAccountInfo"
-        return httpx.Response(200, json={"result": {"value": {
-            "owner": program_id,
-            "executable": False,
-            "data": [base64.b64encode(raw).decode(), "base64"],
-        }}})
-
-    adapter = SolanaAdapter(
-        Settings(solana_program_id=program_id),
-        httpx.Client(transport=httpx.MockTransport(handler)),
-    )
-    info = adapter.get_reward_distributor_info(
-        "3MHpXEzsFkeJeYdPMmnL8LMCY3r3Ew3wm753fZacTCuw"
-    )
-    assert info["admin"] == admin
-    assert info["distributor"] == distributor
-    assert info["mint"] == mint
-    assert info["vault"] == vault
-    assert info["max_reward_amount"] == "1000000000"
-    assert info["total_distributed"] == "5000000"
-    assert info["claims_count"] == 1
-
-
-@pytest.mark.parametrize("raw", [b"bad", anchor_discriminator("account", "RewardConfig") + bytes(10)])
-def test_rejects_invalid_reward_distributor_config(raw):
-    program_id = "8qUBTgX99v5EhxbAaxuqS94rgfRhnLrTgW66Gh9BvLKN"
-    response = httpx.Response(200, json={"result": {"value": {
-        "owner": program_id,
-        "executable": False,
-        "data": [base64.b64encode(raw).decode(), "base64"],
-    }}})
-    adapter = SolanaAdapter(
-        Settings(solana_program_id=program_id),
-        httpx.Client(transport=httpx.MockTransport(lambda request: response)),
-    )
-    with pytest.raises(SolanaAdapterError):
-        adapter.get_reward_distributor_info(
-            "3MHpXEzsFkeJeYdPMmnL8LMCY3r3Ew3wm753fZacTCuw"
-        )

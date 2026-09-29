@@ -12,7 +12,7 @@ from app.blockchain.solana_adapter import SolanaAdapter  # noqa: E402
 from app.core.config import Settings  # noqa: E402
 from app.core.mainnet import mainnet_configuration_errors  # noqa: E402
 from app.core.readiness import check_mainnet_readiness  # noqa: E402
-from app.dex.interface import SOL_MINT  # noqa: E402
+from app.dex.interface import SOL_MINT, token_registry  # noqa: E402
 from app.dex.jupiter_provider import JupiterDexProvider  # noqa: E402
 from app.dex.persistence import DexSwapRepository  # noqa: E402
 from app.rewards.persistence import RewardRepository  # noqa: E402
@@ -41,17 +41,18 @@ def main() -> int:
     routes = {}
     try:
         jupiter = JupiterDexProvider(settings.jupiter_api_key, settings.jupiter_base_url)
+        usdc_mint = token_registry("mainnet-beta")["USDC"].mint
         for name, input_mint, output_mint, amount in (
-            ("sol_to_hkdv", SOL_MINT, settings.game_token_mint, "10000000"),
-            ("hkdv_to_sol", settings.game_token_mint, SOL_MINT, "100000000"),
+            ("sol_to_usdc", SOL_MINT, usdc_mint, "10000000"),
+            ("usdc_to_sol", usdc_mint, SOL_MINT, "1000000"),
         ):
             payload = jupiter._request("GET", "/order", params={
                 "inputMint": input_mint, "outputMint": output_mint, "amount": amount,
             })
             routes[name] = str(payload.get("outAmount", "0")).isdigit() and int(payload.get("outAmount", 0)) > 0
     except Exception:
-        routes.setdefault("sol_to_hkdv", False)
-        routes.setdefault("hkdv_to_sol", False)
+        routes.setdefault("sol_to_usdc", False)
+        routes.setdefault("usdc_to_sol", False)
     report["checks"].update({f"jupiter_{name}": available for name, available in routes.items()})
     report["status"] = "ok" if all(report["checks"].values()) else "unavailable"
     print(json.dumps(report, indent=2))

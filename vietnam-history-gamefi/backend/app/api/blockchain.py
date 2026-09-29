@@ -60,7 +60,6 @@ def get_transaction(chain: str, digest: str, request: Request):
                 adapter,
                 claim,
                 request.app.state.settings.sol_reward_signer_address,
-                request.app.state.settings.reward_distributor_authority,
             )
         except SolanaAdapterError:
             pass

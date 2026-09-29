@@ -67,7 +67,6 @@ def test_devnet_ready_rejects_unmigrated_database(tmp_path):
         _env_file=None,
         solana_network="devnet",
         solana_program_id=program,
-        reward_distributor_authority=str(signer.pubkey()),
     )
     database_url = f"sqlite+pysqlite:///{tmp_path / 'empty.db'}"
     swaps = DexSwapRepository(database_url, create_schema=False)

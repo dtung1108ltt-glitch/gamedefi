@@ -100,14 +100,14 @@ class BlockchainAdapter(ABC):
     def trade_advisor(self, wallet_a: str, wallet_b: str, advisor_a_id: str, advisor_b_id: str) -> str:
         raise NotImplementedError("Advisor trade phải được thực hiện bằng escrow contract on-chain")
 
-    # -------------------------------------------------------- Legacy Faction & Reward
+    # -------------------------------------------------------- Faction & SOL reward
     @abstractmethod
     def mint_faction(self, recipient: str, faction_id: int) -> tuple[str, str]:
         """Tạo faction proof cho wallet. Trả về (tx_digest, nft_object_id)."""
         ...
 
     @abstractmethod
-    def prepare_reward(
+    def prepare_sol_reward(
         self, recipient: str, amount: int, claim_id: bytes
     ) -> PreparedRewardSubmission:
         """Build and sign one deterministic reward transaction without broadcasting it."""
@@ -118,14 +118,9 @@ class BlockchainAdapter(ABC):
         """Broadcast a previously persisted reward transaction and return its signature."""
         ...
 
-    @abstractmethod
-    def get_reward_receipt(self, claim_id: bytes) -> dict | None:
-        """Read the program receipt that permanently guards this claim from replay."""
-        ...
-
     def send_reward(self, recipient: str, amount: int, claim_id: bytes) -> str:
         """Compatibility helper for adapters without durable prepare/submit orchestration."""
-        return self.submit_reward(self.prepare_reward(recipient, amount, claim_id))
+        return self.submit_reward(self.prepare_sol_reward(recipient, amount, claim_id))
 
     @abstractmethod
     def get_faction_nfts(self, wallet: str) -> list[NftInfo]:

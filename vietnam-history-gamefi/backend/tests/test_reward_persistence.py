@@ -4,9 +4,7 @@ import sqlite3
 
 from sqlalchemy import text
 
-from app.blockchain.interface import TransactionInfo
 from app.rewards.persistence import RewardRepository
-from app.rewards.reconciliation import reconcile_wallet
 
 
 def test_existing_reward_claims_keep_legacy_asset_during_upgrade(tmp_path):
@@ -20,28 +18,22 @@ def test_existing_reward_claims_keep_legacy_asset_during_upgrade(tmp_path):
         asset = connection.execute(text(
             "SELECT asset_symbol FROM reward_claims WHERE id = 'old-claim'"
         )).scalar_one()
-    assert asset == "HKDV"
+    assert asset == "LEGACY"
 
 
-class ReceiptAdapter:
-    def __init__(self, signature: str, wallet: str, claim_id: str, amount: int, distributor: str):
-        self.signature = signature
-        self.wallet = wallet
-        self.claim_id = claim_id
-        self.amount = amount
-        self.distributor = distributor
+def test_existing_retired_asset_is_normalized_without_changing_claim_id(tmp_path):
+    database_url = f"sqlite+pysqlite:///{(tmp_path / 'retired.db').as_posix()}"
+    repository = RewardRepository(database_url, create_schema=True)
+    event = repository.record_event(
+        network="devnet", wallet="wallet-one", source_type="battle",
+        source_id="battle-one", qualifier="bach_dang_1288", eligible=True,
+    )
+    old_claim, _ = repository.reserve_claim(event=event, amount=5_000_000, asset_symbol="RETIRED")
 
-    def get_transaction(self, digest: str):
-        assert digest == self.signature
-        return TransactionInfo(digest=digest, status="success", sender=self.distributor)
-
-    def get_reward_receipt(self, claim_id: bytes):
-        assert claim_id.hex() == self.claim_id
-        return {
-            "claim_id": self.claim_id,
-            "recipient": self.wallet,
-            "amount": self.amount,
-        }
+    reopened = RewardRepository(database_url)
+    claim = reopened.get_claim(old_claim.claim_id)
+    assert claim.claim_id == old_claim.claim_id
+    assert claim.asset_symbol == "LEGACY"
 
 
 def test_reward_event_and_claim_are_durable_and_idempotent():
@@ -100,7 +92,7 @@ def test_same_quest_source_is_scoped_to_each_wallet():
     assert first_claim.claim_id != second_claim.claim_id
 
 
-def test_reconciliation_requires_matching_transaction_and_receipt():
+def test_archived_claim_is_never_repaid_as_sol():
     repository = RewardRepository("sqlite+pysqlite://", create_schema=True)
     event = repository.record_event(
         network="devnet",
@@ -110,23 +102,10 @@ def test_reconciliation_requires_matching_transaction_and_receipt():
         qualifier="bach_dang_1288",
         eligible=True,
     )
-    claim, _ = repository.reserve_claim(event=event, amount=10_000_000, asset_symbol="HKDV")
-    claim, acquired = repository.acquire_submission(claim.claim_id)
-    assert acquired is True
-    repository.mark_prepared(
-        claim.claim_id,
-        signature="signature-one",
-        receipt_address="receipt-one",
-        signed_transaction="signed-transaction",
-        last_valid_block_height=123,
-    )
-    distributor = "distributor-one"
-    result = reconcile_wallet(
-        repository,
-        ReceiptAdapter("signature-one", "wallet-one", claim.claim_id, 10_000_000, distributor),
-        network="devnet",
-        wallet="wallet-one",
-        distributor=distributor,
-    )
-    assert result.confirmed == 1
-    assert repository.get_claim(claim.claim_id).status == "confirmed"
+    archived, created = repository.reserve_claim(event=event, amount=10_000_000, asset_symbol="LEGACY")
+    sol_attempt, created_again = repository.reserve_claim(event=event, amount=200_000, asset_symbol="SOL")
+    assert created is True
+    assert created_again is False
+    assert sol_attempt.claim_id == archived.claim_id
+    assert sol_attempt.asset_symbol == "LEGACY"
+    assert repository.pending_wallet(network="devnet", wallet="wallet-one") == []

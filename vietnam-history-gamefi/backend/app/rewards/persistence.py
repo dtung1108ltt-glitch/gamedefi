@@ -158,7 +158,9 @@ class RewardRepository:
             columns = {column["name"] for column in inspect(self.engine).get_columns("reward_claims")}
             if "asset_symbol" not in columns:
                 with self.engine.begin() as connection:
-                    connection.execute(text("ALTER TABLE reward_claims ADD COLUMN asset_symbol VARCHAR(8) NOT NULL DEFAULT 'HKDV'"))
+                    connection.execute(text("ALTER TABLE reward_claims ADD COLUMN asset_symbol VARCHAR(8) NOT NULL DEFAULT 'LEGACY'"))
+            with self.engine.begin() as connection:
+                connection.execute(text("UPDATE reward_claims SET asset_symbol = 'LEGACY' WHERE asset_symbol NOT IN ('SOL', 'LEGACY')"))
 
     @staticmethod
     def _event(row: RewardEventModel) -> RewardEventRecord:
@@ -447,6 +449,7 @@ class RewardRepository:
                 rows = db.scalars(select(RewardClaimModel).where(
                     RewardClaimModel.network == network,
                     RewardClaimModel.wallet == wallet,
+                    RewardClaimModel.asset_symbol == "SOL",
                     RewardClaimModel.status.in_(("submitted", "submission_unknown")),
                     RewardClaimModel.tx_signature.is_not(None),
                 ).order_by(RewardClaimModel.updated_at.asc()).limit(limit)).all()

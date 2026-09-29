@@ -12,7 +12,6 @@ from app.dex.interface import token_registry
 def test_mainnet_defaults_fail_closed():
     settings = Settings(_env_file=None, solana_network="mainnet-beta")
     errors = mainnet_configuration_errors(settings)
-    assert any("GAME_TOKEN_MINT" in error for error in errors)
     assert any("JUPITER_API_KEY" in error for error in errors)
     assert any("MAINNET_UPGRADE_AUTHORITY" in error for error in errors)
     with pytest.raises(ValueError, match="Mainnet chưa an toàn"):
@@ -20,33 +19,19 @@ def test_mainnet_defaults_fail_closed():
     assert set(token_registry("mainnet-beta")) == {"SOL", "USDC"}
 
 
-def test_mainnet_requires_separate_valid_identities_and_sol_usdc_pair():
-    addresses = [str(Keypair().pubkey()) for _ in range(9)]
+def test_mainnet_requires_valid_program_rpc_and_jupiter():
     settings = Settings(
         _env_file=None,
         solana_network="mainnet-beta",
         solana_rpc_url="https://rpc.example.com",
-        solana_program_id=addresses[0],
-        game_token_mint=addresses[1],
-        game_token_treasury_owner=addresses[2],
-        game_token_treasury_account=addresses[3],
-        reward_distributor_config=addresses[4],
-        reward_distributor_admin=addresses[5],
-        reward_distributor_vault=addresses[6],
-        reward_distributor_authority=addresses[7],
-        mainnet_treasury_multisig=addresses[2],
-        mainnet_admin_multisig=addresses[5],
-        mainnet_upgrade_authority=addresses[8],
-        reward_distributor_keypair_path="/secure/mainnet-distributor.json",
+        solana_program_id=str(Keypair().pubkey()),
+        mainnet_upgrade_authority=str(Keypair().pubkey()),
         jupiter_api_key="test-key",
         database_url="postgresql+psycopg://user:password@db.example.com/gamefi",
         database_auto_create=False,
         cors_allow_origins="https://game.example.com",
     )
     validate_mainnet_configuration(settings)
-    tokens = token_registry("mainnet-beta")
-    assert set(tokens) == {"SOL", "USDC"}
-    assert tokens["USDC"].mint != settings.game_token_mint
 
 
 def test_mainnet_dex_stays_closed_until_explicitly_enabled():
@@ -62,7 +47,7 @@ def test_mainnet_dex_stays_closed_until_explicitly_enabled():
     require_trading_enabled(Request())
 
 
-def test_mainnet_reward_cannot_submit_before_release_switch():
+def test_mainnet_reward_is_unavailable():
     class Request:
         class app:
             class state:

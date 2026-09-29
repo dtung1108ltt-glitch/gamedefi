@@ -53,20 +53,17 @@ def submit_event_reward(
     amount: int,
 ) -> RewardClaimRecord:
     settings = request.app.state.settings
-    if settings.solana_network == "mainnet-beta" and not settings.reward_mainnet_enabled:
-        raise HTTPException(status_code=503, detail="Reward Mainnet đang tạm đóng để kiểm tra vận hành")
+    if settings.solana_network != "devnet":
+        raise HTTPException(status_code=503, detail="Thưởng SOL chỉ hoạt động trên Devnet")
     repository = request.app.state.reward_claims
     adapter = request.app.state.resolver.get("solana")
     try:
-        if settings.solana_network != "devnet":
-            raise HTTPException(status_code=503, detail="Thưởng SOL chỉ hoạt động trên Devnet")
         claim, _created = repository.reserve_claim(event=event, amount=amount, asset_symbol="SOL")
         if claim.asset_symbol != "SOL":
             return claim
         if claim.status in {"submitted", "submission_unknown"}:
             try:
-                reconcile_claim(repository, adapter, claim, settings.sol_reward_signer_address,
-                                settings.reward_distributor_authority)
+                reconcile_claim(repository, adapter, claim, settings.sol_reward_signer_address)
             except SolanaAdapterError as exc:
                 repository.mark_submission_uncertain(claim.claim_id, str(exc))
             current = repository.get_claim(claim.claim_id) or claim
@@ -113,8 +110,7 @@ def submit_event_reward(
             repository.mark_submission_uncertain(claim.claim_id, str(exc))
         current = repository.get_claim(claim.claim_id) or claim
         try:
-            reconcile_claim(repository, adapter, current, settings.sol_reward_signer_address,
-                            settings.reward_distributor_authority)
+            reconcile_claim(repository, adapter, current, settings.sol_reward_signer_address)
         except SolanaAdapterError as exc:
             repository.mark_submission_uncertain(claim.claim_id, str(exc))
         return repository.get_claim(claim.claim_id) or current
@@ -229,7 +225,6 @@ def list_rewards(
             network=settings.solana_network,
             wallet=normalized,
             distributor=settings.sol_reward_signer_address,
-            legacy_distributor=settings.reward_distributor_authority,
         )
     except SolanaAdapterError:
         # History remains available from PostgreSQL while the public RPC is degraded.

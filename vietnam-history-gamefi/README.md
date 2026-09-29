@@ -15,6 +15,7 @@ python -m pip install -r requirements.txt
 # Với PostgreSQL: psql "$DATABASE_URL" -f ../database/migrations/001_dex_swaps.sql
 psql "$DATABASE_URL" -f ../database/migrations/002_reward_claims.sql
 psql "$DATABASE_URL" -f ../database/migrations/003_sol_reward_asset.sql
+psql "$DATABASE_URL" -f ../database/migrations/004_archive_reward_assets.sql
 python -m pytest -q
 uvicorn app.main:app --reload
 ```
@@ -74,4 +75,4 @@ Không commit keypair trong `target/`. Không có deployment được tự thự
 - Player, session và battle detail vẫn dùng RAM; reward eligibility và claim được lưu bền vững trong PostgreSQL.
 - Marketplace/P2P chặn thao tác ghi bằng 503 cho đến khi có escrow.
 
-Chi tiết: [DeFi](docs/defi.md), [Blockchain](docs/blockchain.md), [API](docs/api.md), [Kiến trúc](docs/architecture.md). Hồ sơ token và distributor cũ nằm trong [tài liệu lưu trữ](docs/game-token.md).
+Chi tiết: [DeFi](docs/defi.md), [Blockchain](docs/blockchain.md), [API](docs/api.md), [Kiến trúc](docs/architecture.md).

@@ -43,8 +43,9 @@ def reconcile_claim(
     adapter: BlockchainAdapter,
     claim: RewardClaimRecord,
     distributor: str,
-    legacy_distributor: str | None = None,
 ) -> str:
+    if claim.asset_symbol != "SOL":
+        return "archived"
     if not claim.tx_signature:
         repository.mark_failed(claim.claim_id, "Claim chưa có chữ ký Solana")
         return "failed"
@@ -54,19 +55,9 @@ def reconcile_claim(
     if transaction.status == "failure":
         repository.mark_reconciled(claim.claim_id, "failed", "Giao dịch reward thất bại on-chain")
         return "failed"
-    if claim.asset_symbol == "SOL":
-        verified = transaction.sender == distributor and _matches_sol_payment(
-            transaction.raw, distributor=distributor, claim=claim,
-        )
-    else:
-        receipt = adapter.get_reward_receipt(bytes.fromhex(claim.claim_id))
-        verified = (
-            transaction.sender == (legacy_distributor or distributor)
-            and receipt is not None
-            and receipt.get("claim_id") == claim.claim_id
-            and receipt.get("recipient") == claim.wallet
-            and int(receipt.get("amount", -1)) == claim.amount
-        )
+    verified = transaction.sender == distributor and _matches_sol_payment(
+        transaction.raw, distributor=distributor, claim=claim,
+    )
     if verified:
         repository.mark_reconciled(claim.claim_id, "confirmed")
         return "confirmed"
@@ -84,12 +75,11 @@ def reconcile_wallet(
     network: str,
     wallet: str,
     distributor: str,
-    legacy_distributor: str | None = None,
 ) -> RewardReconciliationResult:
     checked = confirmed = failed = pending = 0
     for claim in repository.pending_wallet(network=network, wallet=wallet):
         checked += 1
-        status = reconcile_claim(repository, adapter, claim, distributor, legacy_distributor)
+        status = reconcile_claim(repository, adapter, claim, distributor)
         if status == "confirmed":
             confirmed += 1
         elif status == "failed":
