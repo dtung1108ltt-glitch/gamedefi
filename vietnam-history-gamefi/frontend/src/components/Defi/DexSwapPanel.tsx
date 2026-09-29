@@ -44,10 +44,6 @@ function tokenLogo(symbol: DexTokenSymbol): string | null {
   return symbol === 'SOL' ? '/solana-token.svg' : symbol === 'USDC' ? '/usdc-token.svg' : '/usdt-token.svg';
 }
 
-function rateTokenLabel(symbol: DexTokenSymbol): string {
-  return SOLANA_NETWORK === 'devnet' && symbol !== 'SOL' ? `${symbol} thử` : symbol;
-}
-
 function newIdempotencyKey(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
@@ -293,7 +289,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
   const poolSymbol = fromToken === 'SOL' ? toToken : fromToken;
   const poolAddress = dexConfig?.pools[poolSymbol];
   const rateDisplay = effectiveRate !== null && Number.isFinite(effectiveRate)
-    ? `1 ${rateTokenLabel(fromToken)} ≈ ${effectiveRate.toLocaleString('vi-VN', { maximumFractionDigits: 6 })} ${rateTokenLabel(toToken)}`
+    ? `1 ${fromToken} ≈ ${effectiveRate.toLocaleString('vi-VN', { maximumFractionDigits: 6 })} ${toToken}`
     : null;
   const receiveBalance = balanceStatus === 'ready' ? `${balances[toToken]} ${toToken}` : balanceStatus === 'loading' ? 'Đang đọc…' : 'Chưa có dữ liệu';
 
