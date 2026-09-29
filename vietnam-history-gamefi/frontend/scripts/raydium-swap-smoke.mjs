@@ -68,7 +68,7 @@ async function main() {
     cluster: 'devnet',
     disableFeatureCheck: true,
     disableLoadToken: true,
-    blockhashCommitment: 'confirmed',
+    blockhashCommitment: 'finalized',
     urlConfigs: DEV_API_URLS,
   });
   const { poolInfo, poolKeys, rpcData } = await raydium.cpmm.getPoolInfoFromRpc(pair.pool);
@@ -120,6 +120,7 @@ async function main() {
     trade_fee_rate: rpcData.configInfo.tradeFeeRate.toString(),
     creator_fee_rate: rpcData.configInfo.creatorFeeRate.toString(),
     serialized_bytes: built.transaction.serialize().length,
+    recent_blockhash: built.transaction.message.recentBlockhash,
     required_signatures: built.transaction.message.header.numRequiredSignatures,
     present_signatures: built.transaction.signatures.filter((signature) => {
       const base58 = Buffer.from(signature).toString('hex');

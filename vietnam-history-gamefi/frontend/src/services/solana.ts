@@ -48,8 +48,12 @@ export const solanaAdapter = {
     try {
       signed = await wallet.signTransaction(transaction);
     } catch (reason) {
-      if (SOLANA_NETWORK === 'devnet' && reason instanceof Error && /unexpected error/i.test(reason.message)) {
-        throw new Error('Ví báo "Unexpected error" khi ký. Hãy kiểm tra Phantom đang bật Testnet Mode và chọn Solana Devnet, rồi thử lại.');
+      const walletError = reason as { code?: unknown; message?: unknown } | null;
+      const message = typeof walletError?.message === 'string' ? walletError.message : String(reason);
+      const code = typeof walletError?.code === 'number' || typeof walletError?.code === 'string'
+        ? ` (mã ${walletError.code})` : '';
+      if (/unexpected error/i.test(message)) {
+        throw new Error(`Phantom từ chối ký giao dịch${code}: ${message}.`);
       }
       throw reason;
     }

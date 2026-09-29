@@ -44,7 +44,8 @@ export async function buildRaydiumSwapTransaction(
     cluster: 'devnet',
     disableFeatureCheck: true,
     disableLoadToken: true,
-    blockhashCommitment: 'confirmed',
+    // A finalized blockhash is more likely to be known to Phantom's own RPC.
+    blockhashCommitment: 'finalized',
     urlConfigs: DEV_API_URLS,
   });
   const { poolInfo, poolKeys, rpcData } = await raydium.cpmm.getPoolInfoFromRpc(pair.pool);
