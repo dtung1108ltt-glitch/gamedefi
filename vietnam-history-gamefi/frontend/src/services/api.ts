@@ -15,7 +15,7 @@ import {
   TradeProposal,
   WalletVerifyRequest,
 } from '../types';
-import type { DexConfig, DexExecution, DexOrder, DexOrderRequest, DexSwapHistory } from '../types/dex';
+import type { DexConfig, DexExecution, DexMarketPrice, DexOrder, DexOrderRequest, DexSwapHistory } from '../types/dex';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (
   typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
@@ -527,6 +527,12 @@ class GameApiService {
 
   async getDexConfig(): Promise<DexConfig> {
     const res = await fetch(`${API_BASE_URL}/dex/config`);
+    if (!res.ok) throw await apiError(res);
+    return await res.json();
+  }
+
+  async getDexMarketPrice(): Promise<DexMarketPrice> {
+    const res = await fetch(`${API_BASE_URL}/dex/market-price`);
     if (!res.ok) throw await apiError(res);
     return await res.json();
   }

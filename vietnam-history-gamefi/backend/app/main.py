@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.core.mainnet import validate_mainnet_configuration
 from app.core.readiness import check_mainnet_readiness
 from app.core.security import NonceStore, SessionStore
+from app.dex.market_price import MarketPriceService
 from app.dex.persistence import DexSwapRepository
 from app.dex.resolver import create_dex_provider
 from app.rewards.persistence import RewardPersistenceError, RewardRepository
@@ -42,6 +43,7 @@ def create_app() -> FastAPI:
         create_schema=settings.database_auto_create,
     )
     app.state.dex_provider = create_dex_provider(settings)
+    app.state.market_price = MarketPriceService()
     app.state.dex_swaps = DexSwapRepository(settings.database_url, create_schema=settings.database_auto_create)
     app.state.reward_claims = RewardRepository(settings.database_url, create_schema=settings.database_auto_create)
 

@@ -23,7 +23,7 @@ import {
 } from '../../services/dexBalances';
 import { formatBaseUnits, uiAmountToBaseUnits } from '../../services/dexMath';
 import { buildRaydiumSwapTransaction } from '../../services/raydiumSwap';
-import type { DexConfig, DexExecution, DexOrder, DexSwapHistory, QuickSwapIntent } from '../../types/dex';
+import type { DexConfig, DexExecution, DexMarketPrice, DexOrder, DexSwapHistory, QuickSwapIntent } from '../../types/dex';
 import { SolRewardCard } from './SolRewardCard';
 import './DexSwapPanel.css';
 
@@ -38,6 +38,7 @@ type RequestStatus = 'idle' | 'quoting' | 'signing' | 'executing';
 
 const EMPTY_BALANCES: DexBalances = { SOL: '0', USDC: '0', USDT: '0' };
 const QUOTE_TOKEN: DexTokenSymbol = 'USDC';
+const STANDARD_SLIPPAGE_BPS = 50;
 
 function tokenLogo(symbol: DexTokenSymbol): string | null {
   return symbol === 'SOL' ? '/solana-token.svg' : symbol === 'USDC' ? '/usdc-token.svg' : '/usdt-token.svg';
@@ -66,7 +67,9 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
   const [fromToken, setFromToken] = useState<DexTokenSymbol>(initialSwap?.fromToken ?? 'SOL');
   const [toToken, setToToken] = useState<DexTokenSymbol>(initialSwap?.fromToken && initialSwap.fromToken !== 'SOL' ? 'SOL' : QUOTE_TOKEN);
   const [amount, setAmount] = useState(initialSwap?.amount ?? '');
-  const [slippageBps, setSlippageBps] = useState(50);
+  const [slippageBps, setSlippageBps] = useState(STANDARD_SLIPPAGE_BPS);
+  const [referencePrice, setReferencePrice] = useState<DexMarketPrice | null>(null);
+  const [referenceStatus, setReferenceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [balances, setBalances] = useState<DexBalances>(EMPTY_BALANCES);
   const [dexConfig, setDexConfig] = useState<DexConfig | null>(null);
   const [balanceStatus, setBalanceStatus] = useState<BalanceStatus>('loading');
@@ -134,6 +137,27 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
     void refreshBalances();
     void refreshHistory();
   }, [player.wallet, player.is_guest]);
+
+  useEffect(() => {
+    let active = true;
+    const refreshReferencePrice = async () => {
+      try {
+        const next = await apiService.getDexMarketPrice();
+        if (active) {
+          setReferencePrice(next);
+          setReferenceStatus('ready');
+        }
+      } catch {
+        if (active) {
+          setReferencePrice(null);
+          setReferenceStatus('error');
+        }
+      }
+    };
+    void refreshReferencePrice();
+    const timer = window.setInterval(() => void refreshReferencePrice(), 30_000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
 
   const clearQuote = () => {
     setOrder(null);
@@ -347,13 +371,15 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
                 onChange={(event) => { setSlippageBps(Number(event.target.value)); clearQuote(); }}
               >
                 <option value={10}>0,10%</option>
-                <option value={50}>0,50%</option>
+                <option value={STANDARD_SLIPPAGE_BPS}>Tiêu chuẩn · 0,50%</option>
                 <option value={100}>1,00%</option>
               </select>
             </div>
 
+            <p className="dex-slippage-help">Mức tiêu chuẩn 0,5% áp dụng cho biến động giá từ lúc lấy báo giá đến khi giao dịch được thực hiện.</p>
+
             <dl className="dex-quote-details" aria-live="polite">
-              <div><dt>Tỷ giá</dt><dd>{rateDisplay ?? 'Lấy báo giá để xem'}</dd></div>
+              <div><dt>Giá swap từ pool</dt><dd>{rateDisplay ?? 'Lấy báo giá để xem'}</dd></div>
               <div><dt>Nhận tối thiểu</dt><dd>{order ? `${minimumReceived} ${toToken}` : '—'}</dd></div>
               <div><dt>Tác động giá</dt><dd>{order ? order.provider === 'jupiter' && order.price_impact_bps === 0 ? 'Chưa có dữ liệu' : `${(order.price_impact_bps / 100).toFixed(2)}%` : '—'}</dd></div>
               <div><dt>{order?.provider === 'jupiter' ? 'Phí Jupiter' : 'Phí pool'}</dt><dd>{order ? `${(order.fee_bps / 100).toFixed(2)}%` : '—'}</dd></div>
@@ -438,9 +464,18 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
             </div>
           </div>
           <div className="dex-market-rate">
-            <span>Tỷ giá theo báo giá</span>
+            <span>Giá swap thực tế · pool {networkLabel}</span>
             <strong>{rateDisplay ?? 'Chưa có báo giá'}</strong>
-            <small>{order ? 'Tỷ giá có thể thay đổi trước khi ký.' : 'Nhập số lượng rồi lấy báo giá để xem tỷ giá pool.'}</small>
+            <small>{order ? 'Số token nhận được tính từ thanh khoản pool và phí tại lúc báo giá.' : 'Nhập số lượng rồi lấy báo giá để xem lượng token có thể đổi.'}</small>
+          </div>
+          <div className="dex-market-rate dex-market-reference" aria-live="polite">
+            <span>Giá thị trường tham khảo · SOL/USD</span>
+            <strong>{referencePrice
+              ? `1 SOL ≈ ${Number(referencePrice.price).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} USD`
+              : referenceStatus === 'loading' ? 'Đang tải giá thị trường…' : 'Chưa có giá thị trường'}</strong>
+            <small>{referencePrice
+              ? `${referencePrice.source} · ${new Date(referencePrice.as_of).toLocaleTimeString('vi-VN')}. Giá này không quyết định lượng token Devnet nhận được.`
+              : 'Báo giá swap từ pool vẫn dùng được khi nguồn giá tham khảo tạm gián đoạn.'}</small>
           </div>
           <dl className="dex-market-facts">
             <div><dt>Định tuyến</dt><dd>{SOLANA_NETWORK === 'devnet' ? 'Raydium CPMM' : 'Jupiter'}</dd></div>
@@ -461,7 +496,7 @@ export const DexSwapPanel: React.FC<DexSwapPanelProps> = ({ player, onPlayDrum, 
               <RefreshCw size={17} className={balanceStatus === 'loading' ? 'dex-spin' : ''} aria-hidden="true" />
             </button>
           </div>
-          <p className="dex-market-note">Số dư và báo giá được đọc trực tiếp trên Solana {networkLabel}. Chỉ giao dịch với token thuộc mạng này.</p>
+          <p className="dex-market-note">Số dư và lượng token nhận được đọc từ Solana {networkLabel}. Giá SOL/USD chỉ để tham khảo; token thử Devnet không có tỷ giá USD được bảo đảm.</p>
         </aside>
       </div>
 

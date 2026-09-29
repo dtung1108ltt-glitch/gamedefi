@@ -54,6 +54,14 @@ export interface DexConfig {
   program_id: string | null;
 }
 
+export interface DexMarketPrice {
+  base_symbol: 'SOL';
+  quote_symbol: 'USD';
+  price: string;
+  source: string;
+  as_of: string;
+}
+
 
 export interface DexSwapHistory {
   request_id: string;

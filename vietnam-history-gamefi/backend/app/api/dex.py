@@ -10,6 +10,7 @@ from app.api.dependencies import require_session, require_wallet
 from app.core.security import SessionPrincipal
 from app.core.mainnet import MAINNET_GENESIS
 from app.dex.interface import DexOrderRequestData, DexProviderError, token_registry
+from app.dex.market_price import MarketPriceUnavailable
 from app.dex.persistence import (
     DexIdempotencyConflict,
     DexOrderUnavailable,
@@ -27,6 +28,14 @@ from app.dex.schemas import (
 )
 
 router = APIRouter(prefix="/dex", tags=["dex"])
+
+
+@router.get("/market-price")
+def dex_market_price(request: Request):
+    try:
+        return request.app.state.market_price.sol_usd()
+    except MarketPriceUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 def persistence_error(exc: DexPersistenceError) -> HTTPException:
