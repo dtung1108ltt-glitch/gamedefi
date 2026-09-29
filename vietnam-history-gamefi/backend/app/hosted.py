@@ -26,7 +26,7 @@ class AppStaticFiles(StaticFiles):
 def create_hosted_app(frontend_dist: Path = FRONTEND_DIST, backend=api_app) -> Starlette:
     return Starlette(routes=[
         Mount("/api", app=backend),
-        Mount("/", app=AppStaticFiles(directory=frontend_dist, html=True)),
+        Mount("/", app=AppStaticFiles(directory=frontend_dist, html=True, check_dir=False)),
     ])
 
 
