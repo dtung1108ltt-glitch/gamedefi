@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:match*",
+      "destination": "https://haokhidaiviet.onrender.com/api/:match*"
+    }
+  ]
+}

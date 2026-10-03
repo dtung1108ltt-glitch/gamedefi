@@ -1,0 +1,90 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  HÀO KHÍ ĐẠI VIỆT — CSS CUSTOM PROPERTIES (Design Tokens as CSS Vars)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ *  These CSS custom properties mirror the TypeScript tokens in tokens.ts.
+ *  Import this stylesheet in index.css BEFORE Tailwind layers so that
+ *  all Tailwind utilities and custom CSS can reference them via var(--hk-*).
+ *
+ *  Naming convention:  --hk-{category}-{name}
+ *    --hk-color-*      Color palette
+ *    --hk-material-*   PBR reference colors
+ *    --hk-light-*      Lighting colors
+ *    --hk-ui-*         UI surface colors
+ *    --hk-font-*       Typography
+ *    --hk-anim-*       Animation timings
+ */
+
+:root {
+  /* ── Imperial Color Palette ──────────────────────────────────── */
+  --hk-color-crimson:       #8B1E0F;
+  --hk-color-dark-red:      #520B05;
+  --hk-color-gold:          #D4AF37;
+  --hk-color-light-gold:    #F3E5AB;
+  --hk-color-bronze:        #CD7F32;
+  --hk-color-dark-bronze:   #784212;
+  --hk-color-obsidian:      #0B0C10;
+  --hk-color-lacquer:       #13141C;
+  --hk-color-slate:         #1E2230;
+  --hk-color-border:        #3D362A;
+  --hk-color-jade:          #10B981;
+  --hk-color-jade-dark:     #047857;
+
+  /* ── Side Identification ─────────────────────────────────────── */
+  --hk-side-player:         #1D4ED8;
+  --hk-side-player-accent:  #991B1B;
+  --hk-side-enemy:          #991B1B;
+  --hk-side-enemy-accent:   #0F172A;
+
+  /* ── Faction Banner Colors ───────────────────────────────────── */
+  --hk-faction-1:           #B8860B;
+  --hk-faction-2:           #C71585;
+  --hk-faction-3:           #1E3F66;
+  --hk-faction-4:           #D4AF37;
+  --hk-faction-5:           #8B0000;
+  --hk-faction-6:           #FF4500;
+  --hk-faction-7:           #E65100;
+  --hk-faction-8:           #FFD700;
+
+  /* ── UI Surfaces ─────────────────────────────────────────────── */
+  --hk-ui-panel:            #1a0f0a;
+  --hk-ui-panel-alt:        #0c1a24;
+  --hk-ui-card-header:      #2a1810;
+  --hk-ui-border-gold:      #8b744f;
+  --hk-ui-border-accent:    #C9A44C;
+  --hk-ui-text-gold:        #C9A44C;
+  --hk-ui-text-light-gold:  #F3E5AB;
+  --hk-ui-text-warm:        #f3ce88;
+  --hk-ui-text-body:        #f2ecdf;
+
+  /* ── Lighting Reference ──────────────────────────────────────── */
+  --hk-light-fog:           #0C1B26;
+  --hk-light-ambient:       #FCD396;
+  --hk-light-sun:           #FF9B49;
+  --hk-light-fill:          #5BA0C9;
+  --hk-light-sky:           #FBD097;
+  --hk-light-ground:        #08253A;
+
+  /* ── Typography ──────────────────────────────────────────────── */
+  --hk-font-display:        'Noto Serif', 'Be Vietnam Pro', serif;
+  --hk-font-body:           'Be Vietnam Pro', 'Segoe UI', system-ui, sans-serif;
+  --hk-font-mono:           'JetBrains Mono', 'Fira Code', monospace;
+
+  /* ── Animation Timings ───────────────────────────────────────── */
+  --hk-anim-fast:           150ms;
+  --hk-anim-normal:         220ms;
+  --hk-anim-slow:           300ms;
+  --hk-ease:                cubic-bezier(0.4, 0, 0.6, 1);
+
+  /* ── Glow Effects (box-shadow) ───────────────────────────────── */
+  --hk-glow-gold:           0 0 20px -5px rgba(212,175,55,0.4), inset 0 0 15px -5px rgba(212,175,55,0.2);
+  --hk-glow-crimson:        0 0 25px -5px rgba(185,28,28,0.5), inset 0 0 15px -5px rgba(185,28,28,0.25);
+  --hk-glow-jade:           0 0 20px -5px rgba(16,185,129,0.45);
+
+  /* ── Rarity Tiers ────────────────────────────────────────────── */
+  --hk-rarity-common:       #94A3B8;
+  --hk-rarity-rare:         #3B82F6;
+  --hk-rarity-epic:         #A855F7;
+  --hk-rarity-legendary:    #F59E0B;
+}
